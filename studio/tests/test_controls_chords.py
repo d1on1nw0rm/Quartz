@@ -175,7 +175,7 @@ def test_u_popup_lists_every_continuation_with_its_key() -> None:
     shown = [t for t in menu.entries_text() if t != "---"]
     assert sorted(shown) == sorted(labels), shown
     assert "---" in menu.entries_text()
-    assert expected["Y"] == "tool.grow_selection" and expected["K"] == "tool.shrink_selection"
+    assert expected["G"] == "tool.grow_selection" and expected["K"] == "tool.shrink_selection"
     for aid, label, _cat, second, _enabled in menu.items:
         act = menu.find_action(label)
         assert act.property("qs_shortcut") == second, (aid, second)
@@ -193,7 +193,7 @@ def test_second_key_runs_the_command_and_closes_the_popup() -> None:
     _key(_canvas(), "U")
     _wait()
     assert _menu() is not None
-    _key(_canvas(), "Y")
+    _key(_canvas(), "G")
     assert _menu() is None
     grown = len(scene.selected_polygons)
     assert grown > before, (before, grown)
@@ -229,7 +229,7 @@ def test_escape_closes_the_popup_and_runs_nothing() -> None:
         _settle(2)
         assert _menu() is None
         assert spy.calls == []
-        _key(_canvas(), "Y")
+        _key(_canvas(), "G")
         assert spy.calls == []
         assert _window().controls_filter._prefix is None
 
@@ -274,7 +274,7 @@ def test_a_fast_chord_still_runs_and_no_popup_follows() -> None:
     scene.select_components([0])
     before = len(scene.selected_polygons)
     _key(_canvas(), "U")
-    _key(_canvas(), "Y")
+    _key(_canvas(), "G")
     assert len(scene.selected_polygons) > before
     assert _menu() is None
     _wait()
@@ -424,7 +424,7 @@ def test_standard_has_no_prefix_and_both_profiles_have_no_conflict() -> None:
     finally:
         _select("classic")
     keys = controls.active().keys
-    assert keys["tool.grow_selection"] == (("U~Y", "global"),)
+    assert keys["tool.grow_selection"] == (("U~G", "global"),)
     assert keys["tool.shrink_selection"] == (("U~K", "global"),)
 
 

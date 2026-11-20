@@ -1534,8 +1534,8 @@ Standard hold the same rows.
   category, the tool icon, the label and the second key. Entries that do not apply in the current mode are
   grey. A click runs the entry; Escape, a click elsewhere or a key that does not continue the chord closes it.
   The prefix does not expire while it is open. It does not open with a text field in focus or a mouse button
-  down; the preference `controls.chord_menu` (default on) turns it off. Classic binds `U~Y` Grow Selection and
-  `U~K` Shrink Selection (`ops_select.py` carries the same `U~Y`); Standard has no prefixes and binds
+  down; the preference `controls.chord_menu` (default on) turns it off. Classic binds `U~G` Grow Selection and
+  `U~K` Shrink Selection (`ops_select.py` carries the same `U~G`); Standard has no prefixes and binds
   `Ctrl+Num++` and `Ctrl+Num+-`.
 - Hierarchy panel: Shift and Ctrl click select several rows, selected rows are tinted and the active row has
   the accent bar, Delete removes the whole selection. The context menu commands Enabled, Group Objects,

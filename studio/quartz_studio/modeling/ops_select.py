@@ -448,7 +448,7 @@ register(ToolSpec(
     interactive=False,
     menu="Select",
     section="SELECTION",
-    shortcut="U~Y",
+    shortcut="U~G",
     description="Adds one ring of neighbouring elements around the selection.",
 ))
 

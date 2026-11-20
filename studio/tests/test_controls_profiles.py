@@ -45,7 +45,7 @@ CLASSIC_CHORDS = [
     ("normal_rotate", "M~,"), ("line_cut", "K~K"), ("loop_path_cut", "K~L"), ("plane_cut", "K~J"),
     ("subdivide", "U~S"), ("untriangulate", "U~U"), ("reverse_normals", "U~R"), ("align_normals", "U~A"),
     ("spin_edge", "U~V"), ("collapse", "U~C"), ("melt", "U~Z"), ("optimize", "U~O"), ("disconnect", "U~D"),
-    ("split", "U~P"), ("invert_selection", "U~I"), ("select_connected", "U~W"), ("grow_selection", "U~Y"),
+    ("split", "U~P"), ("invert_selection", "U~I"), ("select_connected", "U~W"), ("grow_selection", "U~G"),
     ("shrink_selection", "U~K"), ("loop_selection", "U~L"), ("ring_selection", "U~B"),
     ("outline_selection", "U~Q"), ("fill_selection", "U~F"), ("path_selection", "U~M"),
     ("convert_selection", "U~X"),

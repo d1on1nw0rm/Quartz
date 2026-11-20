@@ -72,7 +72,7 @@ CLASSIC: dict = {
         "object.make_editable": ["C"],
         "tool.pen": ["M~E"],
         "tool.select_all": ["Ctrl+A"],
-        "tool.grow_selection": ["U~Y"],
+        "tool.grow_selection": ["U~G"],
         "tool.shrink_selection": ["U~K"],
         "tool.move": ["E"],
         "tool.rotate": ["R"],
