@@ -1,0 +1,15 @@
+[project]
+name = "quartz-studio"
+version = "0.1.0"
+description = "Quartz Studio - UI-only desktop shell (author: D1on1n)"
+requires-python = ">=3.14"
+dependencies = ["PySide6>=6.12", "numpy"]
+
+[project.scripts]
+quartz-studio = "quartz_studio.app:main"
+
+[tool.setuptools]
+packages = ["quartz_studio", "quartz_studio.widgets", "quartz_studio.modeling"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,18 @@
+[project]
+name = "quartz"
+version = "0.1.0"
+description = "Quartz - headless 3D application core (Cinema 4D x Blender fusion), milestone 1"
+authors = [{ name = "D1on1n" }]
+requires-python = ">=3.13"
+dependencies = ["numpy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--import-mode=importlib"
+markers = [
+    "slow: slow test (still runs by default)",
+    "blender: needs the Blender executable; runs only with QUARTZ_RUN_BLENDER=1",
+    "sweep: add-on sweep over the Blender scripts corpus; runs only with QUARTZ_RUN_SWEEP=1",
+    "corpus: reads the Blender scripts directory (read-only); skipped when missing",
+]

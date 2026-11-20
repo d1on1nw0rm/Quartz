@@ -1,0 +1,942 @@
+{
+ "path.clean_name": "my_file-1_2___",
+ "path.display_name": "My File-Name",
+ "path.display_name_nolower": "my File-NAME",
+ "path.display_name_from_filepath": "my_file",
+ "path.ensure_ext_upper": "a.TXT",
+ "path.ensure_ext_none": "a.txt",
+ "path.ensure_ext_other": "a.png.txt",
+ "path.abspath_unsaved": "x/y.png",
+ "path.abspath_plain": "C:/q/x.png",
+ "path.basename": "bar.png",
+ "path.is_subdir": [
+  true,
+  false
+ ],
+ "data.filepath_unsaved": "",
+ "id.order": [
+  "QZORD__x",
+  "QZORD_a",
+  "QZORD_A",
+  "QZORD_a10",
+  "QZORD_a2",
+  "QZORD_b",
+  "QZORD_B",
+  "QZORD_Zed"
+ ],
+ "id.order_after_rename": [
+  [
+   "QZR_a",
+   "QZR_c"
+  ],
+  [
+   "QZR_0",
+   "QZR_a"
+  ]
+ ],
+ "id.rename": [
+  "RENAMED_COLLISION_ADJUSTED",
+  "QZRN.001",
+  "RENAMED_NO_COLLISION",
+  "RENAMED_COLLISION_FORCED",
+  [
+   "QZRN.001",
+   "QZRN"
+  ]
+ ],
+ "id.users": {
+  "world_new": 0,
+  "world_after_scene": 1,
+  "camera_ob_users": 1,
+  "scene_camera_is": "Camera",
+  "mat_new": 0,
+  "mat_after_mesh_append": 1,
+  "parent_before": 0,
+  "parent_after_child": 0,
+  "ptr_before": 0,
+  "ptr_after": 1,
+  "collection_new": 0,
+  "collection_linked": 1,
+  "scene_users": 1,
+  "mesh_cube_users": 1,
+  "material_users": 1
+ },
+ "register.classmethod_hooks": [
+  "register",
+  "unregister"
+ ],
+ "object.matrix_world": {
+  "before_update": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "after_update": [
+   1.0,
+   2.0,
+   3.0
+  ],
+  "loc_after_set_world": [
+   5.0,
+   0.0,
+   0.0
+  ],
+  "child_world_no_update": [
+   5.0,
+   0.0,
+   0.0
+  ],
+  "child_world_after_update": [
+   15.0,
+   0.0,
+   0.0
+  ],
+  "parent_inverse": [
+   [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   [
+    0.0,
+    1.0,
+    0.0,
+    0.0
+   ],
+   [
+    0.0,
+    0.0,
+    1.0,
+    0.0
+   ],
+   [
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  ]
+ },
+ "math.euler_xyz": [
+  [
+   0.936293,
+   -0.275096,
+   0.218351
+  ],
+  [
+   0.289629,
+   0.956425,
+   -0.036957
+  ],
+  [
+   -0.198669,
+   0.097843,
+   0.97517
+  ]
+ ],
+ "math.euler_zyx": [
+  [
+   0.936293,
+   -0.289629,
+   0.198669
+  ],
+  [
+   0.312992,
+   0.944703,
+   -0.097843
+  ],
+  [
+   -0.159345,
+   0.153792,
+   0.97517
+  ]
+ ],
+ "math.quat_from_euler": [
+  0.983347,
+  0.034271,
+  0.106021,
+  0.143572
+ ],
+ "math.float32": 0.10000000149011612,
+ "math.repr_vector": "Vector((1.0, 2.5, -3.0))",
+ "math.str_vector": "<Vector (1.0000, 2.5000, -3.0000)>",
+ "math.repr_matrix": "Matrix(((1.0, 0.0, 0.0),\n        (0.0, 1.0, 0.0),\n        (0.0, 0.0, 1.0)))",
+ "math.repr_euler": "Euler((0.10000000149011612, 0.20000000298023224, 0.30000001192092896), 'XYZ')",
+ "math.repr_quat": "Quaternion((1.0, 0.0, 0.0, 0.0))",
+ "math.mat_vec3": [
+  2.0,
+  3.0,
+  4.0
+ ],
+ "math.vec_mat": [
+  0.0,
+  -1.0,
+  0.0
+ ],
+ "math.rot_z": [
+  [
+   0.0,
+   -1.0,
+   0.0
+  ],
+  [
+   1.0,
+   0.0,
+   0.0
+  ],
+  [
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "math.vec_mul_vec": [
+  2.0,
+  6.0,
+  12.0
+ ],
+ "math.vec_matmul_vec": 20.0,
+ "math.vector_hash": {
+  "__exc__": "TypeError",
+  "msg": "Vector is not frozen (mutable), call freeze first"
+ },
+ "math.vector_eq_tuple": false,
+ "math.decompose": [
+  [
+   1.0,
+   2.0,
+   3.0
+  ],
+  [
+   0.983347,
+   0.034271,
+   0.106021,
+   0.143572
+  ],
+  [
+   2.0,
+   2.0,
+   2.0
+  ]
+ ],
+ "math.to_track_quat": [
+  -0.0,
+  0.0,
+  0.707107,
+  0.707107
+ ],
+ "math.quat_axis_angle": [
+  0.707107,
+  0.0,
+  0.0,
+  0.707107
+ ],
+ "math.color_hsv": [
+  0.083333,
+  1.0,
+  1.0
+ ],
+ "math.length_vec2": 5.0,
+ "math.cross2": 1.0,
+ "math.matrix_default": [
+  [
+   1.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  [
+   0.0,
+   1.0,
+   0.0,
+   0.0
+  ],
+  [
+   0.0,
+   0.0,
+   1.0,
+   0.0
+  ],
+  [
+   0.0,
+   0.0,
+   0.0,
+   1.0
+  ]
+ ],
+ "math.vector_default": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "object.defaults": {
+  "rotation_quaternion": [
+   1.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rotation_axis_angle": [
+   0.0,
+   0.0,
+   1.0,
+   0.0
+  ],
+  "rotation_mode": "XYZ",
+  "empty_display_type": "PLAIN_AXES",
+  "empty_display_size": 1.0,
+  "display_type": "TEXTURED",
+  "repr": "bpy.data.objects['QZD']",
+  "location_is_same_obj": false,
+  "location_type": "Vector",
+  "location_owner_is_ob": false,
+  "dimensions": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "color": [
+   1.0,
+   1.0,
+   1.0,
+   1.0
+  ],
+  "unknown_attr_assign": "AttributeError: 'Object' object has no attribute 'qz_unknown_attr'",
+  "bad_enum_assign": "TypeError: bpy_struct: item.attr = val: enum \"NOPE\" not found in ('QUATERNION', 'XYZ', 'XZY', 'YXZ', 'YZX', 'ZXY', 'ZYX', 'AXIS_ANGLE')",
+  "bad_len_assign": "ValueError: bpy_struct: item.attr = val: sequences of dimension 0 should contain 3 items, not 2",
+  "type_assign": "AttributeError: bpy_struct: attribute \"type\" from \"Object\" is read-only",
+  "euler_order_when_quat": "XYZ",
+  "euler_order_when_zyx": "ZYX"
+ },
+ "props.pg_attrs": {
+  "pg_unknown_attr": "ok",
+  "int_from_bool": 1,
+  "int_from_float": "TypeError: bpy_struct: item.attr = val: QZPROBE_PG_attr.x expected an int type, not float",
+  "pg_repr": "bpy.data.scenes['Scene'].qz_attr_pg"
+ },
+ "props.scalar_coercion": {
+  "float_from_int": 3.0,
+  "float_value_0_1": 0.10000000149011612,
+  "float_from_str": "TypeError",
+  "string_maxlen_multibyte": "ÃÃ",
+  "bool_from_int": true,
+  "bool_from_int2": "TypeError: bpy_struct: item.attr = val: Scene.qz_b expected True/False or 0/1, not int"
+ },
+ "props.enum_get_set": {
+  "read": "B",
+  "after_set": "C",
+  "log": [
+   [
+    "get"
+   ],
+   [
+    "set",
+    7
+   ],
+   [
+    "get"
+   ]
+  ]
+ },
+ "factory": {
+  "camera_rot": [
+   1.109319,
+   0.0,
+   0.814928
+  ],
+  "camera_scale": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "camera_lens": 50.0,
+  "camera_sensor": 36.0,
+  "camera_clip": [
+   0.10000000149011612,
+   100.0
+  ],
+  "camera_type": "PERSP",
+  "light_rot": [
+   0.650328,
+   0.055217,
+   1.866391
+  ],
+  "light_type": "POINT",
+  "light_energy": 1000.0,
+  "light_radius": 0.10000000149011612,
+  "light_color": [
+   1.0,
+   1.0,
+   1.0
+  ],
+  "cube_verts": [
+   [
+    1.0,
+    1.0,
+    1.0
+   ],
+   [
+    1.0,
+    1.0,
+    -1.0
+   ],
+   [
+    1.0,
+    -1.0,
+    1.0
+   ],
+   [
+    1.0,
+    -1.0,
+    -1.0
+   ],
+   [
+    -1.0,
+    1.0,
+    1.0
+   ],
+   [
+    -1.0,
+    1.0,
+    -1.0
+   ],
+   [
+    -1.0,
+    -1.0,
+    1.0
+   ],
+   [
+    -1.0,
+    -1.0,
+    -1.0
+   ]
+  ],
+  "cube_faces": [
+   [
+    0,
+    4,
+    6,
+    2
+   ],
+   [
+    3,
+    2,
+    6,
+    7
+   ],
+   [
+    7,
+    6,
+    4,
+    5
+   ],
+   [
+    5,
+    1,
+    3,
+    7
+   ],
+   [
+    1,
+    0,
+    2,
+    3
+   ],
+   [
+    5,
+    4,
+    0,
+    1
+   ]
+  ],
+  "cube_edges": [
+   [
+    5,
+    7
+   ],
+   [
+    1,
+    5
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    7,
+    6
+   ],
+   [
+    2,
+    3
+   ],
+   [
+    4,
+    5
+   ],
+   [
+    2,
+    6
+   ],
+   [
+    0,
+    2
+   ],
+   [
+    7,
+    3
+   ],
+   [
+    6,
+    4
+   ],
+   [
+    4,
+    0
+   ],
+   [
+    3,
+    1
+   ]
+  ],
+  "cube_material_slots": [
+   "Material"
+  ],
+  "cube_use_smooth": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "world_color": [
+   0.050876,
+   0.050876,
+   0.050876
+  ],
+  "scene_camera": "Camera",
+  "scene_world": "World",
+  "render_res": [
+   1920,
+   1080,
+   100,
+   24
+  ],
+  "view_layer_name": "ViewLayer",
+  "selected": [
+   "Cube"
+  ],
+  "wm_name": "WinMan",
+  "screen_name": "Layout",
+  "workspace_name": "Layout",
+  "material_diffuse": [
+   0.8,
+   0.8,
+   0.8,
+   1.0
+  ],
+  "material_users": 1,
+  "dots_users": 0,
+  "uv_first4": [
+   [
+    0.625,
+    0.5
+   ],
+   [
+    0.875,
+    0.5
+   ],
+   [
+    0.875,
+    0.75
+   ],
+   [
+    0.625,
+    0.75
+   ]
+  ],
+  "cursor": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "collection_children": [
+   "Collection"
+  ],
+  "scene_objects": [
+   "Cube",
+   "Light",
+   "Camera"
+  ],
+  "view_layer_objects": [
+   "Cube",
+   "Light",
+   "Camera"
+  ]
+ },
+ "primitives": {
+  "plane": {
+   "v": 4,
+   "e": 4,
+   "f": 1,
+   "l": 4,
+   "name": "Plane",
+   "mesh": "Plane",
+   "bbox": [
+    [
+     -1.0,
+     -1.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0,
+     0.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "cube": {
+   "v": 8,
+   "e": 12,
+   "f": 6,
+   "l": 24,
+   "name": "Cube.001",
+   "mesh": "Cube.001",
+   "bbox": [
+    [
+     -1.0,
+     -1.0,
+     -1.0
+    ],
+    [
+     1.0,
+     1.0,
+     1.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "circle": {
+   "v": 32,
+   "e": 32,
+   "f": 0,
+   "l": 0,
+   "name": "Circle",
+   "mesh": "Circle",
+   "bbox": [
+    [
+     -1.0,
+     -1.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0,
+     0.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "uv_sphere": {
+   "v": 482,
+   "e": 992,
+   "f": 512,
+   "l": 1984,
+   "name": "Sphere",
+   "mesh": "Sphere",
+   "bbox": [
+    [
+     -0.999999,
+     -0.999999,
+     -1.0
+    ],
+    [
+     1.0,
+     1.0,
+     1.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "ico_sphere": {
+   "v": 42,
+   "e": 120,
+   "f": 80,
+   "l": 240,
+   "name": "Icosphere",
+   "mesh": "Icosphere",
+   "bbox": [
+    [
+     -0.951058,
+     -1.0,
+     -1.0
+    ],
+    [
+     0.951058,
+     1.0,
+     1.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "cylinder": {
+   "v": 64,
+   "e": 96,
+   "f": 34,
+   "l": 192,
+   "name": "Cylinder",
+   "mesh": "Cylinder",
+   "bbox": [
+    [
+     -1.0,
+     -1.0,
+     -1.0
+    ],
+    [
+     1.0,
+     1.0,
+     1.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "cone": {
+   "v": 33,
+   "e": 64,
+   "f": 33,
+   "l": 128,
+   "name": "Cone",
+   "mesh": "Cone",
+   "bbox": [
+    [
+     -1.0,
+     -1.0,
+     -1.0
+    ],
+    [
+     1.0,
+     1.0,
+     1.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "grid": {
+   "v": 121,
+   "e": 220,
+   "f": 100,
+   "l": 400,
+   "name": "Grid",
+   "mesh": "Grid",
+   "bbox": [
+    [
+     -1.0,
+     -1.0,
+     0.0
+    ],
+    [
+     1.0,
+     1.0,
+     0.0
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  },
+  "torus": {
+   "v": 576,
+   "e": 1152,
+   "f": 576,
+   "l": 2304,
+   "name": "Torus",
+   "mesh": "Torus",
+   "bbox": [
+    [
+     -1.25,
+     -1.25,
+     -0.25
+    ],
+    [
+     1.25,
+     1.25,
+     0.25
+    ]
+   ],
+   "uv": [
+    "UVMap"
+   ],
+   "smooth": false
+  }
+ },
+ "modes": {
+  "context_mode_edit": "EDIT_MESH",
+  "objects_in_mode": [
+   "Cube"
+  ],
+  "mesh_is_editmode": true,
+  "context_mode_object": "OBJECT",
+  "pose_on_mesh": "TypeError: Converting py args to operator properties: enum \"POSE\" not found in ('OBJECT', 'EDIT', 'SCULPT', 'VERTEX_PAINT', 'WEIGHT_PAINT', 'TEXTURE_PAINT')",
+  "toggle_edit": "EDIT_MESH",
+  "toggle_back": "OBJECT"
+ },
+ "ops.select_all": {
+  "after_toggle_1": [
+   "Camera",
+   "Cube",
+   "Light"
+  ],
+  "after_toggle_2": [],
+  "after_invert": [
+   "Camera",
+   "Cube",
+   "Light"
+  ]
+ },
+ "ops.duplicate": {
+  "ret": [
+   "FINISHED"
+  ],
+  "new_name": "Cube.001",
+  "new_mesh": "Cube.001",
+  "selected": [
+   "Cube.001"
+  ],
+  "cube_selected": false,
+  "linked_mesh": "Cube.001"
+ },
+ "translations.contexts": {
+  "amount": "Amount",
+  "color": "Color",
+  "constraint": "Constraint",
+  "countable": "Countable",
+  "default": "*",
+  "default_real": null,
+  "editor_filebrowser": "File browser",
+  "editor_preferences": "Preferences",
+  "editor_python_console": "Python console",
+  "editor_view3d": "View3D",
+  "id_action": "Action",
+  "id_armature": "Armature",
+  "id_brush": "Brush",
+  "id_cachefile": "CacheFile",
+  "id_camera": "Camera",
+  "id_collection": "Collection",
+  "id_curve": "Curve",
+  "id_curves": "Curves",
+  "id_fs_linestyle": "FreestyleLineStyle",
+  "id_gpencil": "GPencil",
+  "id_id": "ID",
+  "id_image": "Image",
+  "id_lattice": "Lattice",
+  "id_library": "Library",
+  "id_light": "Light",
+  "id_lightprobe": "LightProbe",
+  "id_mask": "Mask",
+  "id_material": "Material",
+  "id_mesh": "Mesh",
+  "id_metaball": "Metaball",
+  "id_movieclip": "MovieClip",
+  "id_nodetree": "NodeTree",
+  "id_object": "Object",
+  "id_paintcurve": "PaintCurve",
+  "id_palette": "Palette",
+  "id_particlesettings": "ParticleSettings",
+  "id_pointcloud": "PointCloud",
+  "id_scene": "Scene",
+  "id_screen": "Screen",
+  "id_sequence": "Sequence",
+  "id_shapekey": "Key",
+  "id_simulation": "Simulation",
+  "id_sound": "Sound",
+  "id_speaker": "Speaker",
+  "id_text": "Text",
+  "id_texture": "Texture",
+  "id_vfont": "VFont",
+  "id_volume": "Volume",
+  "id_windowmanager": "WindowManager",
+  "id_workspace": "WorkSpace",
+  "id_world": "World",
+  "modifier": "Modifier",
+  "navigation": "Navigation",
+  "no_translation": "Do not translate",
+  "operator_default": "Operator",
+  "plural": "Plural",
+  "render_layer": "Render Layer",
+  "time": "Time",
+  "ui_events_keymaps": "UI_Events_KeyMaps",
+  "unit": "Unit"
+ },
+ "translations.locale": "en_US",
+ "translations.pgettext_none_ctx": "Add",
+ "ops.defaults": {
+  "__exc__": "AttributeError",
+  "msg": "type object 'QZPROBE_OT_defaults' has no attribute 'bl_translation_context'"
+ },
+ "utils.escape_identifier": "a\\\"b\\\\c",
+ "utils.flip_name": [
+  "Hand.R",
+  "right_arm",
+  "Foot.L.001",
+  "Foot.L"
+ ],
+ "utils.smpte": "00:00:04:04",
+ "utils.time_from_frame": "0:00:02",
+ "repr.data_objects": "<bpy_collection[3], BlendDataObjects>",
+ "repr.mesh": "bpy.data.meshes['Cube']",
+ "repr.vertex": "bpy.data.meshes['Cube'].vertices[0]",
+ "repr.scene_collection": "bpy.data.scenes['Scene'].collection",
+ "object.select_get_unlinked": false,
+ "light.swap": {
+  "cls_point": "PointLight",
+  "energy": 10.0,
+  "cls_after": "PointLight",
+  "energy_after": 10.0,
+  "has_angle": false
+ },
+ "mesh.shade": {
+  "smooth_default": false,
+  "has_shade_flat": true,
+  "has_shade_smooth": true,
+  "edges": [
+   [
+    0,
+    2
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    1,
+    2
+   ]
+  ],
+  "smooth_shade_flat_false": true
+ }
+}
