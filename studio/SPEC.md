@@ -57,7 +57,7 @@ studio/
       tool_palette.py      left tool rail (card)
       object_palette.py    object creation dock floating at the bottom centre of the viewport
       viewport.py          viewport card (overlaid View and Cameras menus + drawn area)
-      object_manager.py    Hierarchy card (the object tree)
+      object_manager.py    Objects card (the object tree)
       attribute_manager.py Attribute Manager card (header, summary and parameter rows)
       splitter.py          StudioSplitter and its handle (thin rounded bar on hover and drag)
       coordinates.py       Coordinates card
@@ -127,9 +127,14 @@ its child; Shift makes the new object a child of the active one. `ObjectPalette(
 popup_side=...)` also builds a vertical strip (fold-outs to the left) for other hosts.
 
 ### 3.7 `object_manager`
-First card of the right column: header label "Hierarchy" (it was "Objects"), the object tree (select, Shift and
+First card of the right column: header label "Objects", the object tree (select, Shift and
 Ctrl click for several rows, rename with F2 or double click, Delete, drag to reparent, enable check), context
 menu. The Python names (`object_manager`, `ObjectManager`) keep their name.
+Row icons: one source for every creatable kind. `object_manager.spec_icon(spec)` returns the icon name and
+colour that the object dock chooses for that kind (`object_palette._icon_name` and `CATEGORY_COLORS`), so a row,
+the Attribute Manager header and the Create menu entry use the same name and the same rendering path as the dock
+button, and the `ext.icon_overrides` SVGs reach all of them. A Polygon Object with faces shows `empty_polygon`, a
+Polygon Object without faces (a Line) shows `m_line`, a Null shows `pal_null`.
 
 ### 3.8 `attribute_manager`
 Third card when the tool options panel is shown, second otherwise: header label "Attributes", the object
@@ -215,7 +220,7 @@ items (the other items of the tree in `menus_data.py` stay hidden).
 - `tools/snapshot.py --out <png> --size 1920x1010` (and `--size 1280x720`) saves the window rendered
   offscreen. Look at both sizes after any layout or style change.
 - `tests/test_smoke.py` (offscreen): the window builds with the nine regions of `main_window.REGIONS`; the
-  texts "Hierarchy", "Attributes", "Undo", "Make Editable", "Cube", "Reset Transformation", "Untitled",
+  texts "Objects", "Attributes", "Undo", "Make Editable", "Cube", "Reset Transformation", "Untitled",
   "Mode: Model · Tool: Move" and "Drag to move · Hold Ctrl to copy · Esc cancels" exist; `_layout_errors` checks the geometry of
   section 9.5 (margins, gaps, top row, centred mode switcher, rail, viewport, right column, status bar, dock
   inside the viewport and not wider than it, no overlaps) at 1920x1007 and 1280x720, also with the tool
@@ -653,7 +658,7 @@ a)"` (use it to put an ARGB token in a stylesheet).
 | `POLY_OUTLINE` | `#960c0e12` | polygon outlines in Model mode |
 | `OVERLAY_BG` | `#d912151b` | viewport overlays: HUD pill, labels, hovered ghost buttons |
 | `DOCK_BG` / `DOCK_ALPHA` | `#eb171a21` / `235` | object dock fill (card colour at 92 percent) |
-| `STATUS_OK` / `STATUS_ERROR` | `#5fd97a` / `#ff5d6c` | enabled check and disabled cross in the Hierarchy, error text, invalid drop |
+| `STATUS_OK` / `STATUS_ERROR` | `#5fd97a` / `#ff5d6c` | enabled check and disabled cross in the Objects panel, error text, invalid drop |
 
 #### 9.2.6 Older names
 
@@ -749,7 +754,7 @@ Z 6.13 / 6.84. `HAIRLINE` is 1.32 on a card: it separates, it does not shout.
 
 Card headers and section headers are uppercase through `QFont.Capitalization.AllUppercase` and
 `QFont.SpacingType.AbsoluteSpacing` = `HEADER_LETTER_SPACING`, DemiBold, `FONT_GROUP_POINT_SIZE`,
-`TEXT_SECONDARY`. Their text stays title case in code ("Hierarchy", "Attributes"), so tests, tooltips and
+`TEXT_SECONDARY`. Their text stays title case in code ("Objects", "Attributes"), so tests, tooltips and
 accessibility read the real words.
 
 ### 9.4 Icons
@@ -816,7 +821,7 @@ accessibility read the real words.
   `object_manager`, the modeling `ToolOptionsPanel` at index 1 when installed, `attribute_manager`,
   `coordinates` (always last). Default right column width `round(window width * 370 / 1456)` (488 at
   1920, 325 at 1280), or the managers' size hint when wider and there is room, minimum 300. Coordinates
-  height fixed at `COORDINATES_H` 120 (the handle above it is disabled); the Hierarchy and the
+  height fixed at `COORDINATES_H` 120 (the handle above it is disabled); the Objects panel and the
   Attribute Manager share the rest (the Attribute Manager at least its minimum). The selection options card
   sits after the tool options card while a selection tool with options is active.
 - **Cards**: `tool_palette`, `viewport`, `object_manager`, `attribute_manager`, `coordinates` and every
@@ -849,7 +854,7 @@ Measured on the finished window with the modeling tools installed and no extensi
 | `coordinates` | 1424, 862, 488 x 124 | 864, 572, 408 x 124 |
 | `status_bar` | 0, 986, 1920 x 24 | 0, 696, 1280 x 24 |
 
-The Attribute Manager takes `ATTRIBUTE_FRACTION` (58 percent) of the height left for the Hierarchy and
+The Attribute Manager takes `ATTRIBUTE_FRACTION` (58 percent) of the height left for the Objects panel and
 the Attribute Manager together, and never less than `ATTRIBUTE_SHARE` (26 percent) of the column when the tool
 options panel is shown. Builders may change content sizes; they must keep every rule above
 (`tests/test_smoke.py::_layout_errors` checks them at 1920 x 1007 and 1280 x 720). The tool rail is aligned to
@@ -870,7 +875,7 @@ the top of its card.
 | Checkbox (14 x 14, radius 4) | `SURFACE_FIELD`, border `HAIRLINE_STRONG` | border `ACCENT_HOVER` | border `ACCENT_PRESSED` | fill `ACCENT`, check `ACCENT_ON` | 40 percent opacity | ring |
 | Toggle switch (`common.ToggleSwitch`) | track `SURFACE_RAISED`, knob `TEXT_SECONDARY` | track lighter by one step (`SURFACE_HOVER` / `ACCENT_HOVER`) | `ACCENT_PRESSED` when on | track `ACCENT`, knob `ACCENT_ON` | 50 percent opacity | ring |
 | Slider | track `HAIRLINE` 3 px, fill `ACCENT_PRESSED`, round handle `ACCENT` 10 px | handle `ACCENT_HOVER` | handle `ACCENT_PRESSED` | n/a | 40 percent opacity | ring |
-| Tree row (Hierarchy, `ROW_H` 24) | transparent, text `TEXT_PRIMARY` | `SURFACE_RAISED` | `SURFACE_PRESSED` | selected: `ACCENT_TINT` with a 2 px `ACCENT` bar at its left edge, text `TEXT_PRIMARY`; selected and hovered `ACCENT_TINT_HOVER` | disabled object: text `TEXT_MUTED` | rename editor: field with focus ring |
+| Tree row (Objects, `ROW_H` 24) | transparent, text `TEXT_PRIMARY` | `SURFACE_RAISED` | `SURFACE_PRESSED` | selected: `ACCENT_TINT` with a 2 px `ACCENT` bar at its left edge, text `TEXT_PRIMARY`; selected and hovered `ACCENT_TINT_HOVER` | disabled object: text `TEXT_MUTED` | rename editor: field with focus ring |
 | Card header (`PanelTabBar`: `QWidget#qsPanelTabBar`, `QPushButton#qsPanelTab`) | transparent, uppercase letterspaced `TEXT_SECONDARY`, `CARD_HEADER_H` 28, left padding 12 | (several tabs) `TEXT_PRIMARY` | none | the current header stays `TEXT_SECONDARY`; with several tabs the current one is `TEXT_PRIMARY` with a 2 px `ACCENT` underline | `TEXT_MUTED` | ring |
 | Collapsible group header | uppercase `TEXT_SECONDARY`, chevron `TEXT_SECONDARY` | `TEXT_PRIMARY` | `SURFACE_PRESSED` | n/a | `TEXT_MUTED` | n/a |
 | Menu bar item (`QMenuBar#qsMenuBar`) | transparent, `TEXT_SECONDARY` | `SURFACE_RAISED`, radius 6, `TEXT_PRIMARY` | as open | open: `ACCENT_TINT_BACKDROP`, `ACCENT` | `TEXT_MUTED` | ring |
@@ -1055,7 +1060,7 @@ properties `qsCard`, `qsPopup`, `qsRole`, `flat`.
   buttons; `tests/test_press_feedback.py` uses `object_manager.tabs._buttons[0]`). Content inset
   `CARD_PADDING`, transparent backgrounds so the card's corners show; a `HAIRLINE` rule under the header
   at most.
-- Hierarchy (object manager): rows `ROW_H`, states 9.6 (selected row: `ACCENT_TINT` plus the 2 px `ACCENT` bar).
+- Objects (object manager): rows `ROW_H`, states 9.6 (selected row: `ACCENT_TINT` plus the 2 px `ACCENT` bar).
   Replace: `ROW_SELECTED_BG` -> `ACCENT_TINT`, `ROW_SELECTED_HOVER_BG` -> `ACCENT_TINT_HOVER`,
   `ROW_HOVER_BG` -> `SURFACE_RAISED`, `CHECK_COLOR` -> `STATUS_OK`, `CROSS_COLOR` and `DROP_INVALID_COLOR`
   -> `STATUS_ERROR`, `DROP_COLOR` -> `ACCENT`, `DIVIDER_COLOR` and `RULE_COLOR` -> `HAIRLINE`, the rename
@@ -1537,7 +1542,7 @@ Standard hold the same rows.
   down; the preference `controls.chord_menu` (default on) turns it off. Classic binds `U~G` Grow Selection and
   `U~K` Shrink Selection (`ops_select.py` carries the same `U~G`); Standard has no prefixes and binds
   `Ctrl+Num++` and `Ctrl+Num+-`.
-- Hierarchy panel: Shift and Ctrl click select several rows, selected rows are tinted and the active row has
+- Objects panel: Shift and Ctrl click select several rows, selected rows are tinted and the active row has
   the accent bar, Delete removes the whole selection. The context menu commands Enabled, Group Objects,
   Unparent, Select Children and Delete act on the whole selection, one undo step each. The status bar counts
   the selection.

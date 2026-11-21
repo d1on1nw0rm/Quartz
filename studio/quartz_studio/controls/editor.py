@@ -98,7 +98,7 @@ SEARCH_PLACEHOLDER = "Search actions or keys"
 TABS = ("Keyboard", "Mouse", "Cursor")
 CATEGORIES = ("All", "File", "Edit", "Modes", "Tools", "Mesh", "Select", "Create", "View", "Cameras",
               "Objects")
-SCOPE_TEXT = {"global": "Window", "viewport": "Viewport", "objects": "Hierarchy"}
+SCOPE_TEXT = {"global": "Window", "viewport": "Viewport", "objects": "Objects"}
 OPS = (("Orbit", "orbit"), ("Pan", "pan"), ("Dolly", "dolly"), ("Select", "select"),
        ("Add to Selection", "add"), ("Remove from Selection", "remove"), ("Context Menu", "context"))
 DRAG_OPS = ("orbit", "pan", "dolly")

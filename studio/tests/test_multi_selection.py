@@ -313,10 +313,10 @@ def test_delete_key_removes_every_selected_object() -> None:
     assert [o.name for o in scene.objects] == ["A", "B", "C"]
 
 
-def test_hierarchy_panel_supports_the_multi_selection() -> None:
+def test_objects_panel_supports_the_multi_selection() -> None:
     win, scene, canvas, (a, b, c) = _setup()
     tree = win.object_manager.tree
-    assert tree.headerItem().text(0) == "Hierarchy"
+    assert tree.headerItem().text(0) == "Objects"
     _settle()
 
     def click(obj, mods=NO_MOD) -> None:

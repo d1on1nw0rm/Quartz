@@ -37,7 +37,7 @@ PALETTE_BUTTONS = ["Line", "Null", "Rectangle", "Circle", "Cube", "Sphere", "Tex
 COMMAND_BUTTONS = ["Points", "Edges", "Polygons", "Model", "Undo", "Redo", "Make Editable"]
 
 REQUIRED_TEXTS = (
-    "Hierarchy",
+    "Objects",
     "Attributes",
     "Undo",
     "Make Editable",

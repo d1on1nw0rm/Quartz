@@ -652,7 +652,7 @@ def test_checked_and_tab_buttons_flash_darker() -> None:
         _find_button(win.regions["command_bar"], "Points"),
         _find_button(win.regions["tool_palette"], "Move"),
         _find_button(win.regions["tool_palette"], tool_tooltip(get_tool("bevel"))),
-        _find_button(win.regions["object_manager"], "Hierarchy"),
+        _find_button(win.regions["object_manager"], "Objects"),
     ]
     away = _neutral(win)
     for b in targets:

@@ -162,7 +162,7 @@ def test_constructible_without_arguments_and_bound_to_scene() -> None:
     _settle()
     assert am.header.isVisibleTo(am)
     assert am.header.text() == "Polygon Object [Cube]"
-    assert am.object_header.icon_name() == "cube"
+    assert am.object_header.icon_name() == "empty_polygon"
     assert not am.empty_label.isVisibleTo(am)
     _done(am)
 
@@ -171,7 +171,9 @@ def test_header_shows_type_label_and_name() -> None:
     scene, am, obj = _make(ALL_ID)
     assert am.header.text() == f"Test All [{obj.name}]"
     assert am.header.type_text() == "Test All" and am.header.name() == obj.name
-    assert am.header.icon_name() == "cube"
+    from quartz_studio.widgets.object_manager import object_icon_name
+
+    assert am.header.icon_name() == object_icon_name(obj)
     scene.rename_object(obj, "Renamed")
     assert am.header.text() == "Test All [Renamed]"
     scene.set_active(scene.objects[0])

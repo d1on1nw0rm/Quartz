@@ -176,10 +176,9 @@ def _frame(menu: StudioMenu, canvas, selected: bool, everything: bool) -> None:
 
 
 def _spec_icon(spec) -> str:
-    for name in (spec.icon, spec.id):
-        if name and icons.has(name):
-            return name
-    return CATEGORY_ICONS[spec.category]
+    from quartz_studio.widgets.object_manager import spec_icon
+
+    return spec_icon(spec)[0]
 
 
 def _fill_create(menu: StudioMenu) -> None:

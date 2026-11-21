@@ -33,11 +33,11 @@ from quartz_studio.scene import EDITABLE_KIND, SceneObject, get_scene
 from quartz_studio.widgets.common import PanelMenuBar, PanelTabBar, populate_menu
 
 __all__ = ["ObjectManager", "ObjectTree", "ObjectRowDelegate", "HeaderRule",
-           "OBJECT_MANAGER_MENUS", "object_icon_name", "object_icon"]
+           "OBJECT_MANAGER_MENUS", "object_icon_name", "object_icon", "spec_icon"]
 
 EMPTY_TOP = 24
-OBJECT_ICON = "cube"
-LINE_OBJECT_ICON = "spline"
+OBJECT_ICON = "empty_polygon"
+LINE_OBJECT_ICON = "m_line"
 OBJECT_ROLE = Qt.ItemDataRole.UserRole + 1
 DRAG_MIME = "application/x-quartz-object"
 ROW_H = 26
@@ -88,7 +88,7 @@ OBJECT_MANAGER_MENUS: list[tuple[str, list, bool]] = [
         ("item", "Show Search Bar", None, "search"),
         ("sep",),
         ("submenu", "Display Mode", [
-            ("item", "Hierarchy"),
+            ("item", "Objects"),
             ("item", "Layers"),
             ("item", "Takes"),
         ]),
@@ -176,18 +176,23 @@ def object_category(obj: SceneObject | None) -> str:
     return "mesh"
 
 
+def spec_icon(spec) -> tuple[str, str | None]:
+    from quartz_studio.widgets import object_palette
+
+    return object_palette._icon_name(spec), object_palette.CATEGORY_COLORS[spec.category]
+
+
 def object_icon(obj: SceneObject | None) -> tuple[str, str | None]:
     spec = _spec_of(obj)
-    if spec is not None and spec.icon and icons.has(spec.icon):
-        return spec.icon, None
-    category = object_category(obj)
-    if category == "null":
-        return "null", None
-    if category == "generator":
-        return OBJECT_ICON, theme.ICON_GENERATOR
-    if category == "spline":
-        return LINE_OBJECT_ICON, theme.ICON_SPLINE
-    return OBJECT_ICON, theme.ICON_MESH
+    if spec is not None:
+        return spec_icon(spec)
+    if obj is not None and not obj.mesh.has_faces():
+        if obj.extras.get("icon") == OBJECT_ICON and len(obj.mesh.points) == 0:
+            return OBJECT_ICON, theme.ICON_MESH
+        return LINE_OBJECT_ICON, None
+    if icons.has(OBJECT_ICON):
+        return OBJECT_ICON, theme.ICON_MESH
+    return "cube", theme.ICON_MESH
 
 
 def object_icon_name(obj: SceneObject | None) -> str:
@@ -287,7 +292,7 @@ class ObjectTree(QTreeWidget):
         self.setObjectName("qsObjectTree")
         self.setColumnCount(1)
         self.setHeaderHidden(True)
-        self.setHeaderLabels(["Hierarchy"])
+        self.setHeaderLabels(["Objects"])
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setRootIsDecorated(True)
         self.setIndentation(INDENT)
@@ -780,7 +785,7 @@ class ObjectManager(QWidget):
                                theme.CARD_PADDING)
         lay.setSpacing(0)
 
-        self.tabs = PanelTabBar(["Hierarchy"], self)
+        self.tabs = PanelTabBar(["Objects"], self)
         lay.addWidget(self.tabs)
 
         lay.addWidget(HeaderRule(self))

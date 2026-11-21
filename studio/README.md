@@ -20,13 +20,13 @@ Layout of the window:
 - Centre: the viewport, a rounded card. View and Cameras are ghost buttons inside it at the top left, the
   pan, zoom and orbit icons at the top right, the tool HUD is a pill at the bottom left. The object
   creation palette is a floating dock at the bottom centre of the viewport; its fold-outs open upward.
-- Right: three stacked cards (Hierarchy, Attributes, Coordinates), plus the tool options card while a
+- Right: three stacked cards (Objects, Attributes, Coordinates), plus the tool options card while a
   modeling tool is active and the selection options card while a selection tool with options is active. The
   gaps between cards are splitters: invisible at rest, a thin rounded bar on hover and while dragging.
   Coordinates keeps a fixed height of 120 px.
 - Bottom: a 24 px status bar with the mode and tool on the left, a hint for the active tool in the centre
   and the number of selected objects, points, edges and polygons on the right.
-- Right click opens a context menu in the viewport (object, component or empty space) and in the Hierarchy;
+- Right click opens a context menu in the viewport (object, component or empty space) and in the Objects panel;
   right click on an attribute row offers Reset to Default.
 
 What is in the window:
@@ -42,7 +42,7 @@ What is in the window:
   (splines and meshes), then the Subdivision Surface, Extrude and Voronoi Fracture buttons (generators).
   Each button has a fold-out with the other objects of its group. An object that is not registered has
   no entry: Polygon and Spline Mask are missing for now.
-- Hierarchy (tree with parents and children, several rows can be selected), Attribute Manager (the object header, a points and
+- Objects (tree with parents and children, several rows can be selected), Attribute Manager (the object header, a points and
   polygons summary for editable meshes, and one row per parameter for parametric objects; no tabs) and
   Coordinate Manager.
 
@@ -134,7 +134,7 @@ What works:
   the mouse, Alt plus mouse buttons, the middle button, keys 1/2/3, H/S/O and F1 to F4 in Classic, the Cameras
   menu, and view undo (`Ctrl+Shift+Z`, `Ctrl+Shift+Y` in Classic).
 - Polygon Pen and Line Pen. Holding Ctrl after a drag starts turns it into an extrusion.
-- Coordinate Manager in cm and degrees. Hierarchy with several objects, rename and Delete.
+- Coordinate Manager in cm and degrees. Objects panel with several objects, rename and Delete.
 
 Selection and tools (Classic and Standard):
 

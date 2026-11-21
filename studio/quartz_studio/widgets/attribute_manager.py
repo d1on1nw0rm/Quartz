@@ -25,7 +25,7 @@ from quartz_studio.objects import registry
 from quartz_studio.scene import get_scene
 from quartz_studio.widgets.common import CollapsibleGroup, FieldRow, PanelTabBar, prepare_combo
 from quartz_studio.widgets.coordinates import format_number
-from quartz_studio.widgets.object_manager import HeaderRule, object_icon_name
+from quartz_studio.widgets.object_manager import HeaderRule, object_icon
 
 __all__ = [
     "AttributeManager",
@@ -360,18 +360,21 @@ class ObjectHeader(QWidget):
             f"QLabel#qsObjectHeaderTitle {{ color: {theme.TEXT_PRIMARY}; font-weight: 600; }}")
         lay.addWidget(self.title, 1)
         self._icon_name = ""
+        self._icon_color: str | None = None
         self._type = ""
         self._name = ""
 
-    def set_object(self, type_text: str, name: str, icon_name: str) -> None:
+    def set_object(self, type_text: str, name: str, icon_name: str,
+                   color: str | None = None) -> None:
         self._type = type_text
         self._name = name
         text = f"{type_text} [{name}]"
         if self.title.text() != text:
             self.title.setText(text)
-        if icon_name != self._icon_name:
+        if (icon_name, color) != (self._icon_name, self._icon_color):
             self._icon_name = icon_name
-            self.icon.setPixmap(icons.pixmap(icon_name, HEADER_ICON,
+            self._icon_color = color
+            self.icon.setPixmap(icons.pixmap(icon_name, HEADER_ICON, color,
                                              device_pixel_ratio=self.devicePixelRatioF()))
 
     def text(self) -> str:
@@ -495,13 +498,8 @@ class AttributeManager(QWidget):
         spec = self._spec_of(obj)
         return spec.label if spec is not None else obj.kind
 
-    def _icon_for(self, obj) -> str:
-        spec = self._spec_of(obj)
-        if spec is not None:
-            for name in (spec.icon, spec.id):
-                if name and icons.has(name):
-                    return name
-        return object_icon_name(obj)
+    def _icon_for(self, obj) -> tuple[str, str | None]:
+        return object_icon(obj)
 
     def refresh(self, *_args) -> None:
         if self._editing:
@@ -601,7 +599,7 @@ class AttributeManager(QWidget):
         self.context_menu = context_menu.show_menu(menu, row.mapToGlobal(pos))
 
     def _load(self, obj, force: bool, force_key: str | None = None) -> None:
-        self.header.set_object(self._type_text(obj), obj.name, self._icon_for(obj))
+        self.header.set_object(self._type_text(obj), obj.name, *self._icon_for(obj))
         error = getattr(obj, "error", "") or ""
         self.error_label.setText(error)
         self.error_label.setVisible(bool(error))

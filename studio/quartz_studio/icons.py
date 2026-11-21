@@ -36,6 +36,7 @@ GROUP_MARK_COLOR = theme.TEXT_SECONDARY
 DISABLED_OPACITY = 0.38
 
 _W = theme.ICON_STROKE_W
+_DOT_R = 2.1
 _TINT_SET = {theme.TINT_MINT.lower(), theme.TINT_CITRINE.lower(),
              theme.TINT_AMETHYST.lower(), theme.TINT_ROSE.lower()}
 
@@ -1407,98 +1408,97 @@ def _platonic(p, c):
 @_builtin("line", ROSE, "m_line")
 def _line_icon(p, c):
     pts = ((3.8, 17.6), (9, 8.2), (15, 15.8), (20.2, 6.4))
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolyline(_poly(*pts))
     for x, y in pts:
-        _dot(p, x, y, c, 1.7)
+        _dot(p, x, y, c, _DOT_R)
 
 
 @_builtin("spline", ROSE, "spline_generic")
 def _spline(p, c):
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPath(_cubic((3.5, 17), (7, 3, 12, 22, 20.5, 6)))
-    _dot(p, 3.5, 17, c, 1.7)
-    _dot(p, 20.5, 6, c, 1.7)
+    _dot(p, 3.5, 17, c, _DOT_R)
+    _dot(p, 20.5, 6, c, _DOT_R)
 
 
 @_builtin("rectangle", ROSE)
 def _rectangle(p, c):
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawRect(QRectF(4, 6.5, 16, 11))
-    _dot(p, 4, 6.5, c, 1.7)
-    _dot(p, 20, 17.5, c, 1.7)
+    _dot(p, 4, 6.5, c, _DOT_R)
+    _dot(p, 20, 17.5, c, _DOT_R)
 
 
 @_builtin("circle", ROSE)
 def _circle_icon(p, c):
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     _circle(p, 12, 12, 8.2)
-    _dot(p, 12, 3.8, c, 1.7)
-    _dot(p, 12, 20.2, c, 1.7)
+    _dot(p, 12, 3.8, c, _DOT_R)
+    _dot(p, 12, 20.2, c, _DOT_R)
 
 
 @_builtin("four_side", ROSE)
 def _four_side(p, c):
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolygon(_poly((12, 3.2), (20.8, 12), (12, 20.8), (3.2, 12)))
-    _dot(p, 12, 3.2, c, 1.7)
-    _dot(p, 12, 20.8, c, 1.7)
+    _dot(p, 12, 3.2, c, _DOT_R)
+    _dot(p, 12, 20.8, c, _DOT_R)
 
 
 @_builtin("n_side", ROSE)
 def _n_side(p, c):
     pts = _ngon(12, 12, 8.8, 6)
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolygon(_poly(*pts))
-    _dot(p, *pts[0], c, 1.7)
-    _dot(p, *pts[3], c, 1.7)
+    _dot(p, *pts[0], c, _DOT_R)
+    _dot(p, *pts[3], c, _DOT_R)
 
 
 @_builtin("star", ROSE)
 def _star(p, c):
     pts = _star_pts(12, 12.6, 9, 4)
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolygon(_poly(*pts))
-    _dot(p, *pts[0], c, 1.7)
+    _dot(p, *pts[0], c, _DOT_R)
 
 
 @_builtin("cogwheel", ROSE)
 def _cogwheel(p, c):
-    _pen(p, _T(), 1.8)
-    p.drawPath(_gear_path(12, 12, 9.4, 6.9, 2.6, 8))
-    _dot(p, 12, 12, c, 1.2)
+    _pen(p, _T())
+    p.drawPath(_gear_path(12, 12, 9.4, 6.9, 3.4, 8))
 
 
 @_builtin("profile", ROSE)
 def _profile(p, c):
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolyline(_poly((4, 20), (4, 12.5), (10.5, 12.5), (10.5, 6), (20, 6)))
-    _dot(p, 4, 20, c, 1.7)
-    _dot(p, 20, 6, c, 1.7)
+    _dot(p, 4, 20, c, _DOT_R)
+    _dot(p, 20, 6, c, _DOT_R)
 
 
 @_builtin("arc", ROSE)
 def _arc_icon(p, c):
     pts = _arc_pts(12, 16, 8.6, 8.6, 28, 124)
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolyline(_poly(*pts))
-    _dot(p, *pts[0], c, 1.7)
-    _dot(p, *pts[-1], c, 1.7)
+    _dot(p, *pts[0], c, _DOT_R)
+    _dot(p, *pts[-1], c, _DOT_R)
 
 
 @_builtin("cissoid", ROSE)
 def _cissoid(p, c):
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPath(_cubic((3.5, 3.5), (10, 4.5, 12, 11, 12, 20.5)))
     p.drawPath(_cubic((20.5, 3.5), (14, 4.5, 12, 11, 12, 20.5)))
-    _dot(p, 12, 20.5, c, 1.7)
+    _dot(p, 12, 20.5, c, _DOT_R)
 
 
 @_builtin("cycloid", ROSE)
 def _cycloid(p, c):
     _pen(p, _alpha(c, 0.6), 1.2)
     _line(p, 2.5, 19.5, 21.5, 19.5)
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPath(_cubic((2.5, 19.5), (3.5, 5, 10, 5, 12, 19.5), (14, 5, 20.5, 5, 21.5, 19.5)))
 
 
@@ -1506,7 +1506,7 @@ def _cycloid(p, c):
 def _formula(p, c):
     _pen(p, _alpha(c, 0.6), 1.2)
     _line(p, 3, 12, 21, 12)
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPath(_cubic((3, 12), (6, 2.5, 9, 2.5, 12, 12), (15, 21.5, 18, 21.5, 21, 12)))
 
 
@@ -1517,13 +1517,15 @@ def _helix(p, c):
     for i in range(steps + 1):
         t = i / steps * 3.0 * 2 * math.pi
         pts.append((12 + 7.5 * math.cos(t), 20.5 - 15.5 * i / steps + 2.3 * math.sin(t)))
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolyline(_poly(*pts))
+    _dot(p, *pts[0], c, _DOT_R)
+    _dot(p, *pts[-1], c, _DOT_R)
 
 
 @_builtin("flower", ROSE)
 def _flower(p, c):
-    _pen(p, _T(), 1.6)
+    _pen(p, _T())
     for k in range(5):
         p.save()
         p.translate(12, 12)
@@ -1536,10 +1538,10 @@ def _flower(p, c):
 @_builtin("text_spline", ROSE)
 def _text_spline(p, c):
     pts = ((4, 4.5), (20, 4.5), (20, 9), (14.2, 9), (14.2, 20), (9.8, 20), (9.8, 9), (4, 9))
-    _pen(p, _T(), 1.8)
+    _pen(p, _T())
     p.drawPolygon(_poly(*pts))
-    _dot(p, *pts[0], c, 1.6)
-    _dot(p, *pts[4], c, 1.6)
+    _dot(p, *pts[0], c, _DOT_R)
+    _dot(p, *pts[4], c, _DOT_R)
 
 
 @_builtin("spline_arc", ROSE)

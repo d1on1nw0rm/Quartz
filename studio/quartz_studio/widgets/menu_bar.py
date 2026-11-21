@@ -903,7 +903,7 @@ def create_line() -> None:
 
 
 def create_empty_polygon() -> None:
-    _scene().add_object("Polygon")
+    _scene().add_object("Polygon").extras["icon"] = "empty_polygon"
 
 
 def create_object(spec_id: str, modifiers=None):

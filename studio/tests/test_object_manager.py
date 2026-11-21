@@ -129,8 +129,8 @@ def test_icons_follow_kind_and_category() -> None:
     _settle(2)
     assert object_icon(cube) == (OBJECT_ICON, theme.ICON_MESH)
     assert object_icon(child) == (OBJECT_ICON, theme.ICON_MESH)
-    assert object_icon(line) == (LINE_OBJECT_ICON, theme.ICON_SPLINE)
-    assert object_icon(gen) == (OBJECT_ICON, theme.ICON_GENERATOR)
+    assert object_icon(line) == (LINE_OBJECT_ICON, None)
+    assert object_icon(gen) == ("generator", theme.ICON_GENERATOR)
     assert object_icon(null) == ("null", None)
     tree.window().grab()
 
