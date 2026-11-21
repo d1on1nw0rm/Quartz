@@ -215,8 +215,6 @@ the object tests in `tests/test_objects_*.py` and the managers in `tests/test_ob
 - `quartz_studio/`: `app.py`, `main_window.py`, `project.py` (project state, title, dialogs, file commands), `scene.py`, `theme.py` (the Crystal tokens and the QSS), `icons.py`
   (vector icons drawn in code), `prefs.py` (preferences file), `controls/` (profiles, dispatch and the Controls
   editor) and `widgets/` (one screen region per file).
-- `reference/`: historical screenshots of the arrangement study, and `layout_palettes.json` with the palette
-  contents read from the user's layout file. The names in that file are kept in the original program's language.
 - `tools/snapshot.py --out <png> --size 1920x1010`: renders the window offscreen to a PNG (also `--size 1280x720`).
 - `tools/make_spritesheet.py`: renders every icon into a spritesheet and a contact sheet (`--sizes`, `--zoom`,
   `--only`, `--contact-out`).

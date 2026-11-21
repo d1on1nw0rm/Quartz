@@ -17,3 +17,12 @@ coord/
 opencode.json
 *.out
 prof_*.out
+.env
+*.env
+*.log
+CLAUDE.md
+AGENTS.md
+.claude/
+settings.local.json
+*.key
+*.pem

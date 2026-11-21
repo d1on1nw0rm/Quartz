@@ -4,6 +4,15 @@ A 3D modeling program.
 Quartz has two parts. The core, in `quartz/`, is a headless 3D application library with a `bpy`-shaped API (data-blocks,
 meshes, operators, properties, undo). The interface, in `studio/`, is Quartz Studio, a PySide6 desktop app.
 
+## Download
+
+The ready-to-run `Quartz.exe` is on the [Releases page](https://github.com/d1on1nw0rm/Quartz/releases).
+It is portable: a single `.exe`, no installer, for Windows 10/11 x64. Download the zip, extract it and
+double-click `Quartz.exe`. Windows SmartScreen may warn because the exe is not signed; choose
+"More info" and then "Run anyway".
+
+License: MIT
+
 ## Folders
 
 | Folder | What it holds |

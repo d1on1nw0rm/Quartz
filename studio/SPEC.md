@@ -29,8 +29,8 @@ palette and the Create menu are built from the object registry (section 7), and 
    window icon is the user's file `assets/quartzInstance.ico`; it is never redrawn or replaced.
 4. Only PySide6 + the standard library (+ numpy if needed). No network. No dependency on the `quartz` package
    (the shell is independent and will be wired to the core later).
-5. The captures in `studio/reference/` are historical: they were the arrangement study and are now used only
-   for menu content and command names (sections 5 and 5b). The look and the layout come from section 9. The
+5. The arrangement study is over; only the menu content and command names it produced are still used
+   (sections 5 and 5b). The look and the layout come from section 9. The
    window opens maximized, minimum size 1280x720, and the layout scales (splitters and stretch), not absolute
    positions.
 
@@ -173,16 +173,16 @@ Project As..., Export, Close Project, Exit; Edit: Undo, Redo, Cut, Copy, Paste, 
 Settings..., Preferences...; and so on). Submenus can have 3 to 8 items.
 
 ## 5b. Real palette contents (from the user's layout file)
-`studio/reference/layout_palettes.json` was extracted from the user's startup layout file (`template.l4d`),
-with the names read from the program itself, in its interface language at the time. Each palette has
+The palette contents were read from the user's startup layout file during the arrangement study; the
+extracted files are not part of this repository. Each palette has
 `items`: `button` (one command), `group` (a button with a group triangle; it shows `shown`, and clicking or
 holding opens a vertical or horizontal popup with all `commands`, as in the program) and `separator`.
 Roles: palette 1 = `command_bar`; palette 4 = `tool_palette`; palette 18 = `sculpt_bar`; palette 19 =
 `object_palette`; the others are saved palettes that are not visible in this layout.
-- Historical note: this file was the source of command names and group contents during the arrangement
+- Historical note: that data was the source of command names and group contents during the arrangement
   study. Positions, order on screen and look now come from section 9; only the names and group contents
   below are still used.
-- The JSON decides **the content of the groups** (popups) and the exact names and tooltips. For example, the
+- That data decides **the content of the groups** (popups) and the exact names and tooltips. For example, the
   sculpt bar has Subdivide, Decrease,
   Increase, Unsubdivide | Draw, Wax, Inflate, Amplify, Knife, Repeat | Grab, Smooth, Flatten, Pinch,
   Scrape, Fill | Erase, Mask (group: Invert, Clear, Hide, Show Masked) | Add Layer, Add Folder | Project
@@ -190,7 +190,6 @@ Roles: palette 1 = `command_bar`; palette 4 = `tool_palette`; palette 18 = `scul
 - The object palette (19) lists Null; Rectangle, Circle, Cube, Sphere, Text/Figure (primitives); 4
   generators; Bend (deformers) and Linear Field (fields); Camera, Light and Sky groups. Only entries whose
   objects exist are shown (section 3.6); new groups join the dock in that order.
-- `layout_palettes_named.txt` holds the same information as readable text.
 
 ## 5c. File commands
 
