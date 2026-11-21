@@ -182,7 +182,7 @@ def _good_header(**scene_extra) -> dict:
     scene = {"objects": [{"name": "A", "kind": "polygon", "parent": None,
                           "mesh": fmt_quartz._mesh_to_json(Mesh.cube(10.0))}]}
     scene.update(scene_extra)
-    return {"format": "quartz", "version": 1, "app": "0.1.0", "scene": scene, "view": {}}
+    return {"format": "quartz", "version": 1, "app": "1.0.0", "scene": scene, "view": {}}
 
 
 def _open_must_fail(name: str, data, *needles):

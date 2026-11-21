@@ -6,9 +6,9 @@ if _sys.platform == "win32" and "QT_QPA_FONTDIR" not in _os.environ:
     if _os.path.isdir(_fonts):
         _os.environ["QT_QPA_FONTDIR"] = _fonts
 
-__version__ = "0.1.0"
+__version__ = "1.0.0"
 APP_NAME = "Quartz Studio"
-APP_VERSION_SHORT = "0.1"
+APP_VERSION_SHORT = "1.0"
 DOCUMENT_NAME = "Untitled"
 LAYOUT_NAME = "Main"
 TITLE_SUFFIX = "Quartz"

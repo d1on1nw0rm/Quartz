@@ -3,8 +3,8 @@ import sys
 
 from quartz.app import handlers, timers, msgbus, translations, settings, paths
 
-version: tuple[int, int, int] = (0, 1, 0)
-version_string: str = "0.1.0"
+version: tuple[int, int, int] = (1, 0, 0)
+version_string: str = "1.0.0"
 version_cycle: str = "alpha"
 background: bool = True
 factory_startup: bool = True

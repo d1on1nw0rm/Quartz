@@ -114,7 +114,7 @@ numpy**. `quartz/__init__.py` only imports `quartz._version` at module level.
 ```toml
 [project]
 name = "quartz"
-version = "0.1.0"
+version = "1.0.0"
 description = "Quartz - headless 3D application core (Cinema 4D x Blender fusion), milestone 1"
 authors = [{ name = "D1on1n" }]
 requires-python = ">=3.13"
@@ -174,8 +174,8 @@ Fixtures (all import `quartz` **inside** the function, so that L1 tests do not l
 #### 1.1.3 `quartz/_version.py`
 
 ```python
-VERSION: tuple[int, int, int] = (0, 1, 0)
-__version__: str = "0.1.0"
+VERSION: tuple[int, int, int] = (1, 0, 0)
+__version__: str = "1.0.0"
 APP_NAME: str = "Quartz"
 AUTHOR: str = "D1on1n"
 ```
@@ -269,8 +269,8 @@ extensions_audio: frozenset[str]   # .wav .mp3 .ogg .flac .aac .m4a ...
 
 ```python
 from quartz.app import handlers, timers, msgbus, translations, settings, paths   # submodules
-version: tuple[int, int, int] = (0, 1, 0)        # QUARTZ version (Blender's exists only in compat/bpy/app)
-version_string: str = "0.1.0"
+version: tuple[int, int, int] = (1, 0, 0)        # QUARTZ version (Blender's exists only in compat/bpy/app)
+version_string: str = "1.0.0"
 version_cycle: str = "alpha"
 background: bool = True
 factory_startup: bool = True
@@ -1669,7 +1669,7 @@ Owner: `l2-runtime` (§2.6.6), with each type's keys specified by the type's own
    (sorted); non-finite float → `{"__float__": "nan" | "inf" | "-inf"}`; `dict` keys only
    `str` (anything else → `FileFormatError` on save); `"__…__"` keys reserved.
 6. **Container** (zip, §2.6.7): `manifest.json` = `{"format": "quartz.qz", "format_version": 1,
-   "quartz_version": "0.1.0", "author": "D1on1n", "ids": N}`; `data.json` = `{"state_version": 1,
+   "quartz_version": "1.0.0", "author": "D1on1n", "ids": N}`; `data.json` = `{"state_version": 1,
    "ids": [{"type": <RNA name of the class>, "id_type": ..., "name": ..., "schema": ..., "state":
    ...}, ...], "extra": {...}}`; `arrays/<k>.npy` (`np.save`, loaded with
    `allow_pickle=False`). No timestamp; fixed order (IDs in the order of
@@ -9790,7 +9790,7 @@ def cmd_addon_sweep(args: argparse.Namespace) -> int
 Command line (exact options; `...` = repeatable; `--version` at the top level):
 
 ```
-quartz --version                                     # prints "quartz 0.1.0"; code 0
+quartz --version                                     # prints "quartz 1.0.0"; code 0
 quartz info [--json]
 quartz scan-addon TARGET [--json]
 quartz enable-addon MOD|PATH [--path DIR]... [--repo NAME=DIR]... [--no-restrict] [--strict]
@@ -9874,7 +9874,7 @@ LTS"` **[O]**, `None` if unavailable); none of these accesses activates compat. 
 `meshes` = `len(s.data.scenes)`/`len(s.data.objects)`/`len(s.data.meshes)`.
 
 Text: one line per group, starting with `f"{APP_NAME} {__version__} (author: {AUTHOR})"` (=
-`"Quartz 0.1.0 (author: D1on1n)"`); contains `"Python"`,
+`"Quartz 1.0.0 (author: D1on1n)"`); contains `"Python"`,
 `"numpy"`, `"User directory:"`, `"Compat:"` (`"available"`/`"unavailable"`, Blender
 version and `"active"`/`"inactive"`), `"Built-in operators:"` and `"Session:"`.
 
@@ -10481,7 +10481,7 @@ header from §0.1(1).
 
 - `tests/cli/conftest.py`, `tests/sweep/conftest.py`: only the `addon_sandbox` fixture above.
 - `tests/cli/test_cli_main.py`: `build_parser()` has exactly the five subcommands and the options from
-  §3.5.1; `main(["--help"])` → `0`; `main(["--version"])` → `0` and `"quartz 0.1.0"` in `stdout`;
+  §3.5.1; `main(["--help"])` → `0`; `main(["--version"])` → `0` and `"quartz 1.0.0"` in `stdout`;
   `main([])`, `main(["bogus"])`, `main(["addon-sweep", "--jobs", "0"])`, `main(["addon-sweep",
   "--timeout", "0"])` and `main(["run-script", "<tmp_path>/nothing.py"])` → `2`, without creating a session
   (verified with `monkeypatch` on `quartz.session.current` that fails); splitting of `ARGS`
@@ -10496,10 +10496,10 @@ header from §0.1(1).
   `"D1on1n"`, the ROADMAP contains `"SCENARIO"`.
 - `tests/cli/test_cli_info.py` (under `qz`): `info --json` is JSON with exactly the top-level keys from
   §3.5.1 (`quartz`, `python`, `numpy`, `platform`, `paths`, `compat`, `registry`, `session`,
-  `handlers`), `quartz.version == "0.1.0"`, `quartz.author == "D1on1n"`, `session.objects == 3`,
+  `handlers`), `quartz.version == "1.0.0"`, `quartz.author == "D1on1n"`, `session.objects == 3`,
   `session.template == "default"`, `handlers == {"blender": 39, "quartz": 5}`,
   `registry.builtin_operators` ≥ 43 (the operators in the §2.7 table), `compat.active is False`;
-  `quartz.compat.is_active()` false after the command; text contains `"Quartz 0.1.0 (author: D1on1n)"`
+  `quartz.compat.is_active()` false after the command; text contains `"Quartz 1.0.0 (author: D1on1n)"`
   and `"Session:"`.
 - `tests/cli/test_cli_scan.py` (under `qz`): `scan-addon` on `tests/fixtures/addons/qz_fx_single.py`
   → `0`, JSON with non-null `bl_info` and `"bpy.types.Operator"` in `symbols`; on

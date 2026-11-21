@@ -1,6 +1,6 @@
 [project]
 name = "quartz"
-version = "0.1.0"
+version = "1.0.0"
 description = "Quartz - headless 3D application core (Cinema 4D x Blender fusion), milestone 1"
 authors = [{ name = "D1on1n" }]
 requires-python = ">=3.13"

@@ -124,7 +124,7 @@ def qpath():
 EXPECTED_PYPROJECT = {
     "project": {
         "name": "quartz",
-        "version": "0.1.0",
+        "version": "1.0.0",
         "description": "Quartz - headless 3D application core (Cinema 4D x Blender fusion), milestone 1",
         "authors": [{"name": "D1on1n"}],
         "requires-python": ">=3.13",
@@ -407,8 +407,8 @@ def test_conftest_qz_fixtures_use_testing_isolated():
 
 def test_version_constants():
     from quartz import _version as v
-    assert v.VERSION == (0, 1, 0) and isinstance(v.VERSION, tuple)
-    assert v.__version__ == "0.1.0"
+    assert v.VERSION == (1, 0, 0) and isinstance(v.VERSION, tuple)
+    assert v.__version__ == "1.0.0"
     assert v.APP_NAME == "Quartz"
     assert v.AUTHOR == "D1on1n"
 
@@ -427,8 +427,8 @@ EXPECTED_LAZY = frozenset({
 
 def test_facade_reexports_version():
     import quartz
-    assert quartz.VERSION == (0, 1, 0)
-    assert quartz.__version__ == "0.1.0"
+    assert quartz.VERSION == (1, 0, 0)
+    assert quartz.__version__ == "1.0.0"
     assert quartz.APP_NAME == "Quartz"
     assert quartz.AUTHOR == "D1on1n"
 
@@ -864,7 +864,7 @@ def test_path_only_stdlib_imports():
 
 
 @pytest.mark.parametrize("name,value", [
-    ("version", (0, 1, 0)), ("version_string", "0.1.0"), ("version_cycle", "alpha"),
+    ("version", (1, 0, 0)), ("version_string", "1.0.0"), ("version_cycle", "alpha"),
     ("background", True), ("factory_startup", True), ("debug", False), ("debug_value", 0),
     ("online_access", False), ("online_access_override", False), ("portable", True),
     ("python_args", ()),
