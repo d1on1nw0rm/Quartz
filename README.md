@@ -1,10 +1,8 @@
 # Quartz
 
-A 3D modeling program. Author: **D1on1n**.
-
+A 3D modeling program.
 Quartz has two parts. The core, in `quartz/`, is a headless 3D application library with a `bpy`-shaped API (data-blocks,
-meshes, operators, properties, undo). The interface, in `studio/`, is Quartz Studio, a PySide6 desktop app with a
-Cinema 4D style viewport.
+meshes, operators, properties, undo). The interface, in `studio/`, is Quartz Studio, a PySide6 desktop app.
 
 ## Folders
 
