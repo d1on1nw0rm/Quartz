@@ -409,6 +409,8 @@ class AttributeManager(QWidget):
         self.object_rows: dict[str, FieldRow] = {}
         self.object_groups: dict[str, CollapsibleGroup] = {}
         self.object_page: QWidget | None = None
+        self._pages: dict[str, tuple] = {}
+        self._shown: tuple | None = None
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(theme.CARD_PADDING, theme.SPACE_1, theme.CARD_PADDING,
@@ -506,16 +508,30 @@ class AttributeManager(QWidget):
             return
         self._update()
 
+    def _fingerprint(self, obj) -> tuple | None:
+        if obj is None:
+            return None
+        mesh = obj.mesh
+        counts = (len(mesh.points), len(mesh.polygons), len(mesh.loose_edges))             if obj.kind == "polygon" else ()
+        return (getattr(obj, "_uid", id(obj)), obj.kind, obj.name, getattr(obj, "error", ""),
+                repr(obj.params), counts, self._scene.mode, self._scene.object_selected)
+
     def _update(self) -> None:
         obj = self._target()
         spec = self._spec_of(obj)
         key = None if obj is None else obj.kind
         retarget = obj is not self._obj
+        shown = self._fingerprint(obj)
+        if not retarget and key == self._key and spec is self._spec and shown == self._shown:
+            return
+        self._shown = shown
         self._obj = obj
+        paged = False
         if key != self._key or spec is not self._spec:
             self._key = key
             self._spec = spec
-            self._rebuild_object_page()
+            self._show_page()
+            paged = True
         has = obj is not None
         rows = has and self.object_page is not None
         self.header.setVisible(has)
@@ -524,24 +540,40 @@ class AttributeManager(QWidget):
         self.empty_label.setVisible(not has)
         self._filler.setVisible(has and not rows)
         if has:
-            self._load(obj, retarget)
+            self._load(obj, retarget or paged)
         else:
             self.error_label.setVisible(False)
 
-    def _rebuild_object_page(self) -> None:
+    def _show_page(self) -> None:
         old = self.object_page
+        if old is not None:
+            old.hide()
         self.object_editors = {}
         self.object_rows = {}
         self.object_groups = {}
         self.object_page = None
-        if old is not None:
-            old.hide()
-            old.setParent(None)
-            old.deleteLater()
         spec = self._spec
         if spec is None or not spec.params:
             return
+        entry = self._pages.get(spec.id)
+        if entry is not None and entry[0] is not spec:
+            entry[1].setParent(None)
+            entry[1].deleteLater()
+            entry = None
+        if entry is None:
+            entry = self._build_page(spec)
+            self._pages[spec.id] = entry
+        _spec, page, editors, rows, groups = entry
+        self.object_editors = editors
+        self.object_rows = rows
+        self.object_groups = groups
+        self.object_page = page
+        page.show()
+
+    def _build_page(self, spec) -> tuple:
         self.rebuild_count += 1
+        editors: dict[str, ParamEditor] = {}
+        rows: dict[str, FieldRow] = {}
         page = QWidget(self.object_host)
         pl = QVBoxLayout(page)
         pl.setContentsMargins(0, 0, 0, 0)
@@ -560,11 +592,11 @@ class AttributeManager(QWidget):
             row.setToolTip(param.label)
             self._hook_row_menu(param.key, row, editor)
             group.add_widget(row)
-            self.object_editors[param.key] = editor
-            self.object_rows[param.key] = row
-        self.object_groups = groups
-        self.object_page = page
+            editors[param.key] = editor
+            rows[param.key] = row
+        page.hide()
         self.object_host_layout.addWidget(page)
+        return (spec, page, editors, rows, groups)
 
     def _make_group(self, spec_id: str, title: str, page: QWidget, first: bool,
                     several: bool) -> CollapsibleGroup:
@@ -663,4 +695,5 @@ class AttributeManager(QWidget):
             pass
         finally:
             self._editing = False
+        self._shown = self._fingerprint(obj)
         self._load(obj, False, key)

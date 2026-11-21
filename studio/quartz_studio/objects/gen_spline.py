@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+from collections import OrderedDict
+from itertools import chain
 
 import numpy as np
 from PySide6.QtGui import QFont, QFontMetricsF, QPainterPath, QTransform
@@ -62,17 +64,20 @@ def _cross2(a, b, c) -> float:
 
 
 def _inside_poly(points: np.ndarray, poly: np.ndarray) -> np.ndarray:
-    x, y = points[:, 0], points[:, 1]
-    inside = np.zeros(len(points), bool)
-    j = len(poly) - 1
-    for i in range(len(poly)):
-        xi, yi = poly[i]
-        xj, yj = poly[j]
-        if yi != yj:
-            cond = ((yi > y) != (yj > y)) & (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
-            inside ^= cond
-        j = i
-    return inside
+    poly = np.asarray(poly, float)
+    xi, yi = poly[:, 0][None, :], poly[:, 1][None, :]
+    prev = np.roll(poly, 1, axis=0)
+    xj, yj = prev[:, 0][None, :], prev[:, 1][None, :]
+    flat = yi != yj
+    run = max(1, 1_000_000 // max(1, len(poly)))
+    out = np.zeros(len(points), bool)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        for lo in range(0, len(points), run):
+            x = points[lo:lo + run, 0][:, None]
+            y = points[lo:lo + run, 1][:, None]
+            cond = ((yi > y) != (yj > y)) & (x < (xj - xi) * (y - yi) / (yj - yi) + xi) & flat
+            out[lo:lo + run] = (cond.sum(axis=1) & 1).astype(bool)
+    return out
 
 
 def _nesting(rings: list[np.ndarray]) -> list[tuple[int, int | None]]:
@@ -164,7 +169,8 @@ def _bridge(P: np.ndarray, ring: list[int], hole: list[int]) -> list[int]:
     return ring[:c + 1] + rot + [m, ring[c]] + ring[c + 1:]
 
 
-def _ear_clip(P: np.ndarray, ring: list[int], eps: float) -> list[tuple[int, int, int]]:
+def _ear_clip(P: np.ndarray, ring: list[int], eps: float,
+              spread: bool = False) -> list[tuple[int, int, int]]:
     ring = list(ring)
     m = len(ring)
     if m < 3:
@@ -238,10 +244,18 @@ def _ear_clip(P: np.ndarray, ring: list[int], eps: float) -> list[tuple[int, int
     check(every)
     tris: list[tuple[int, int, int]] = []
     left = m
+    last = -1
     while left > 3:
         live = np.flatnonzero(alive & valid)
         if len(live):
-            k = int(live[int(np.argmax(q[live]))])
+            qs = q[live]
+            k = int(live[int(np.argmax(qs))])
+            if spread and last >= 0:
+                tied = live[qs >= float(qs.max()) * (1.0 - 1e-9)]
+                if len(tied) > 1:
+                    gap = np.abs(tied - last)
+                    k = int(tied[int(np.argmax(np.minimum(gap, m - gap)))])
+            last = k
         else:
             live = np.flatnonzero(alive)
             k = int(live[int(np.argmax(cr[live]))])
@@ -449,14 +463,18 @@ def _skin(grid, ring_closed: bool, layers_closed: bool = False,
           reverse: bool = False) -> list[tuple[int, ...]]:
     g = np.asarray(grid)
     layers, count = g.shape
-    out = []
-    for k in range(layers if layers_closed else layers - 1):
-        k2 = (k + 1) % layers
-        for i in range(count if ring_closed else count - 1):
-            j = (i + 1) % count
-            q = (int(g[k, i]), int(g[k, j]), int(g[k2, j]), int(g[k2, i]))
-            out.append(q[::-1] if reverse else q)
-    return out
+    rows = layers if layers_closed else layers - 1
+    cols = count if ring_closed else count - 1
+    if rows <= 0 or cols <= 0:
+        return []
+    k = np.arange(rows)[:, None]
+    i = np.arange(cols)[None, :]
+    k2 = (k + 1) % layers
+    j = (i + 1) % count
+    quads = np.stack([g[k, i], g[k, j], g[k2, j], g[k2, i]], axis=-1).reshape(-1, 4)
+    if reverse:
+        quads = quads[:, ::-1]
+    return list(map(tuple, quads.tolist()))
 
 
 class _Out:
@@ -470,7 +488,10 @@ class _Out:
         base = self.count
         self.chunks.append(np.asarray(points, float).reshape(-1, 3))
         self.count += len(points)
-        self.polys.extend(tuple(i + base for i in poly) for poly in polys)
+        if base:
+            self.polys.extend(tuple(i + base for i in poly) for poly in polys)
+        else:
+            self.polys.extend(polys)
         return base
 
     def mesh(self, orient_volume: bool = False) -> Mesh:
@@ -503,46 +524,77 @@ def _newell_norms(pts: np.ndarray, rings: list[tuple[int, ...]]) -> np.ndarray:
         return np.zeros(0)
     counts = np.fromiter((len(r) for r in rings), int, len(rings))
     flat = np.fromiter((i for r in rings for i in r), int, int(counts.sum()))
+    return _newell_norms_flat(pts, flat, counts)
+
+
+def _newell_norms_flat(pts: np.ndarray, flat: np.ndarray, counts: np.ndarray) -> np.ndarray:
+    if not len(counts):
+        return np.zeros(0)
     starts = np.cumsum(counts) - counts
-    pid = np.repeat(np.arange(len(rings)), counts)
+    pid = np.repeat(np.arange(len(counts)), counts)
     local = np.arange(len(flat)) - starts[pid]
     nxt = flat[starts[pid] + (local + 1) % counts[pid]]
     a, b = pts[flat], pts[nxt]
     parts = [(a[:, 1] - b[:, 1]) * (a[:, 2] + b[:, 2]), (a[:, 2] - b[:, 2]) * (a[:, 0] + b[:, 0]),
              (a[:, 0] - b[:, 0]) * (a[:, 1] + b[:, 1])]
-    n = np.stack([np.bincount(pid, w, len(rings)) for w in parts], axis=1).astype(float)
+    n = np.stack([np.bincount(pid, w, len(counts)) for w in parts], axis=1).astype(float)
     return np.linalg.norm(n, axis=1)
 
 
 def _finish(points: np.ndarray, polys, orient_volume: bool = False) -> Mesh:
-    keys = np.round(points / WELD).astype(np.int64)
-    seen: dict[tuple, int] = {}
-    remap = np.zeros(len(points), dtype=int)
-    kept: list[int] = []
-    for i, key in enumerate(map(tuple, keys)):
-        j = seen.get(key)
-        if j is None:
-            j = len(kept)
-            seen[key] = j
-            kept.append(i)
-        remap[i] = j
-    pts = points[kept]
-    rings: list[tuple[int, ...]] = []
-    for poly in polys:
-        ring = [int(remap[i]) for i in poly]
-        ring = [v for k, v in enumerate(ring) if v != ring[k - 1]]
-        if len(ring) < 3 or len(set(ring)) != len(ring):
-            continue
-        rings.append(tuple(ring))
-    keep = _newell_norms(pts, rings) > 1e-9
-    out = [r for r, k in zip(rings, keep.tolist()) if k]
-    if not out:
+    points = np.asarray(points, float)
+    if not len(polys) or not len(points):
         return Mesh.empty()
-    if orient_volume and _closed_consistent(out) and _volume(pts, out) < 0:
-        out = [poly[::-1] for poly in out]
-    used = sorted({i for poly in out for i in poly})
-    index = {old: new for new, old in enumerate(used)}
-    return Mesh(pts[used], [tuple(index[i] for i in poly) for poly in out])
+    keys = np.round(points / WELD).astype(np.int64)
+    _u, first, inverse = np.unique(keys, axis=0, return_index=True, return_inverse=True)
+    order = np.argsort(first, kind="stable")
+    rank = np.empty(len(first), np.int64)
+    rank[order] = np.arange(len(first))
+    remap = rank[np.asarray(inverse).reshape(-1)]
+    pts = points[first[order]]
+    counts = np.fromiter(map(len, polys), np.int64, len(polys))
+    total = int(counts.sum())
+    flat = remap[np.fromiter(chain.from_iterable(polys), np.int64, total)]
+    starts = np.cumsum(counts) - counts
+    pid = np.repeat(np.arange(len(polys)), counts)
+    local = np.arange(total) - starts[pid]
+    prev = flat[starts[pid] + (local - 1) % counts[pid]]
+    keep = flat != prev
+    flat, pid = flat[keep], pid[keep]
+    counts2 = np.bincount(pid, minlength=len(polys))
+    ok = counts2 >= 3
+    srt = np.lexsort((flat, pid))
+    sp, sf = pid[srt], flat[srt]
+    repeated = np.zeros(len(polys), bool)
+    same = (sp[1:] == sp[:-1]) & (sf[1:] == sf[:-1])
+    repeated[sp[1:][same]] = True
+    ok &= ~repeated
+    sel = ok[pid]
+    flat, pid = flat[sel], pid[sel]
+    ids = np.flatnonzero(ok)
+    counts3 = counts2[ids]
+    good = _newell_norms_flat(pts, flat, counts3) > 1e-9
+    if not good.any():
+        return Mesh.empty()
+    flat = flat[np.repeat(good, counts3)]
+    counts4 = counts3[good]
+    if orient_volume:
+        cuts = (np.cumsum(counts4)[:-1]).tolist()
+        out = [tuple(part.tolist()) for part in np.split(flat, cuts)]
+        if _closed_consistent(out) and _volume(pts, out) < 0:
+            out = [poly[::-1] for poly in out]
+        used = sorted({i for poly in out for i in poly})
+        index = {old: new for new, old in enumerate(used)}
+        return Mesh(pts[used], [tuple(index[i] for i in poly) for poly in out])
+    used, inv = np.unique(flat, return_inverse=True)
+    inv = np.asarray(inv).reshape(-1).tolist()
+    bounds = np.cumsum(counts4).tolist()
+    polygons = []
+    lo = 0
+    for hi in bounds:
+        polygons.append(tuple(inv[lo:hi]))
+        lo = hi
+    return Mesh.trusted(pts[used], polygons)
 
 
 def _spline_chains(inputs: list) -> list[list[tuple[np.ndarray, bool]]]:
@@ -601,10 +653,17 @@ def _extrude_set(chains, move: np.ndarray, sub: int, start_cap: bool, end_cap: b
             if d % 2:
                 continue
             holes = [h for h, (dh, parent) in enumerate(depth) if dh == d + 1 and parent == o]
-            if start_cap:
+            if start_cap and end_cap:
+                top = _cap(allpts, list(grids[o][-1]), [list(grids[h][-1]) for h in holes], normal)
+                low_ids = list(grids[o][0]) + [i for h in holes for i in grids[h][0]]
+                top_ids = list(grids[o][-1]) + [i for h in holes for i in grids[h][-1]]
+                lift = dict(zip(top_ids, low_ids))
+                polys.extend(tuple(lift[i] for i in reversed(poly)) for poly in top)
+                polys.extend(top)
+            elif start_cap:
                 polys.extend(_cap(allpts, list(grids[o][0]), [list(grids[h][0]) for h in holes],
                                   -normal))
-            if end_cap:
+            elif end_cap:
                 polys.extend(_cap(allpts, list(grids[o][-1]), [list(grids[h][-1]) for h in holes],
                                   normal))
     out.add(allpts, polys)
@@ -934,7 +993,37 @@ def build_loft(p: dict, inputs: list) -> Mesh:
     return out.mesh(orient_volume=True)
 
 
+_TEXT_KEYS = ("text", "height", "font", "horizontal_spacing", "vertical_spacing", "align")
+_TEXT_CHAINS: OrderedDict = OrderedDict()
+_TEXT_TEMPLATES: OrderedDict = OrderedDict()
+_TEXT_LIMIT = 12
+_TEXT_REF_DEPTH = 100.0
+_TEXT_MIN_DEPTH = 1e-3
+
+
+def _text_key(p: dict) -> tuple:
+    return tuple(repr(p[k]) for k in _TEXT_KEYS)
+
+
+def _remember(cache: OrderedDict, key, value) -> None:
+    cache.pop(key, None)
+    cache[key] = value
+    while len(cache) > _TEXT_LIMIT:
+        cache.popitem(last=False)
+
+
 def text_chains(p: dict) -> list[np.ndarray]:
+    key = _text_key(p)
+    hit = _TEXT_CHAINS.get(key)
+    if hit is None:
+        hit = _text_chains(p)
+        _remember(_TEXT_CHAINS, key, hit)
+    else:
+        _TEXT_CHAINS.move_to_end(key)
+    return list(hit)
+
+
+def _text_chains(p: dict) -> list[np.ndarray]:
     text = str(p["text"])
     height = float(p["height"])
     if not text.strip() or height <= 0:
@@ -959,7 +1048,7 @@ def text_chains(p: dict) -> list[np.ndarray]:
         shift = {"Left": 0.0, "Middle": -advance / 2.0, "Right": -advance}.get(str(p["align"]), 0.0)
         down = row * (metrics.lineSpacing() * s + float(p["vertical_spacing"]))
         for poly in path.toSubpathPolygons(matrix):
-            pts = np.array([(poly.at(i).x(), poly.at(i).y()) for i in range(poly.size())], float)
+            pts = np.array([(q.x(), q.y()) for q in poly], float)
             if len(pts) < 3:
                 continue
             ring = _clean(np.column_stack([pts[:, 0] / fine + shift * s, pts[:, 1] / fine - down,
@@ -983,12 +1072,34 @@ def build_text_spline(p: dict, _inputs: list) -> Mesh:
     return Mesh(pts, [], edges)
 
 
+def _text_extrude(rings: list[np.ndarray], depth: float) -> Mesh:
+    return _extrude_chains([[(r, True) for r in rings]], (0.0, 0.0, depth), 1, True, True)
+
+
 def build_text(p: dict, _inputs: list) -> Mesh:
     depth = float(p["depth"])
-    rings = text_chains(p)
-    if not rings or depth <= 0:
+    if depth <= 0:
         return Mesh.empty()
-    return _extrude_chains([[(r, True) for r in rings]], (0.0, 0.0, depth), 1, True, True)
+    rings = text_chains(p)
+    if not rings:
+        return Mesh.empty()
+    if depth < _TEXT_MIN_DEPTH:
+        return _text_extrude(rings, depth)
+    key = _text_key(p)
+    template = _TEXT_TEMPLATES.get(key)
+    if template is None:
+        mesh = _text_extrude(rings, _TEXT_REF_DEPTH)
+        top = mesh.points[:, 2] > 0.5 * _TEXT_REF_DEPTH
+        template = (mesh, top)
+        _remember(_TEXT_TEMPLATES, key, template)
+    else:
+        _TEXT_TEMPLATES.move_to_end(key)
+    mesh, top = template
+    if not len(mesh.points):
+        return Mesh.empty()
+    points = mesh.points.copy()
+    points[top, 2] = depth
+    return mesh.with_points(points)
 
 
 def _text_params() -> tuple:

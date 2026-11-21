@@ -388,7 +388,7 @@ def test_window_shows_only_functional_regions() -> None:
              if not attributes.isAncestorOf(w)]
     assert not stray, stray
     viewport = win.regions["viewport"]
-    assert viewport.menu_bar.menu_titles() == ["View", "Cameras"]
+    assert viewport.menu_bar.menu_titles() == ["View", "Cameras", "Display", "Filter"]
     assert len(viewport.menu_bar.nav_buttons) == 3
     assert list(win.regions["tool_palette"].buttons) == TOOL_BUTTONS
     assert list(win.regions["object_palette"].buttons) == PALETTE_BUTTONS

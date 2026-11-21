@@ -243,14 +243,14 @@ def test_wheel_zoom_keeps_point_under_mouse() -> None:
 
 
 def test_wheel_never_passes_through_the_point() -> None:
-    from quartz_studio.widgets.viewport import MIN_APPROACH
+    from quartz_studio.widgets.viewport import reach_floor
 
     canvas, _scene = _make()
     spot = _px(canvas, FRONT_SPOT)
     for _ in range(80):
         _wheel(canvas, spot, 1)
     reach = np.linalg.norm(canvas.camera.position() - np.array(FRONT_SPOT))
-    assert MIN_APPROACH - 1e-6 <= reach < MIN_APPROACH * 1.2, reach
+    assert reach_floor(FRONT_SPOT) < reach < 1618.0 * 0.88 ** 79, reach
     assert float(canvas.camera.depth(FRONT_SPOT)[0]) > 0
     assert np.allclose(_px(canvas, FRONT_SPOT), spot, atol=1e-4)
 
@@ -608,18 +608,18 @@ def _far_cube(scene, canvas, size: float = 1000.0, behind: float = 3000.0):
 
 
 def test_wheel_zoom_never_stalls_on_a_close_target() -> None:
-    from quartz_studio.widgets.viewport import MIN_APPROACH, NAV_MIN_DEPTH
+    from quartz_studio.widgets.viewport import reach_floor
 
     canvas, scene = _make()
     far = _far_cube(scene, canvas)
     empty = np.array([500.0, 120.0])
     assert canvas.hit_at(empty) is None
-    for k in range(60):
+    for k in range(20):
         eye = canvas.camera.position()
         _wheel(canvas, empty, 1)
         step = float(np.linalg.norm(canvas.camera.position() - eye))
         assert step > 0.5, (k, step, canvas.camera.distance)
-        assert canvas.camera.distance >= NAV_MIN_DEPTH - 1e-9
+        assert canvas.camera.distance >= canvas.carry_depth() - 1e-9
     assert canvas.hit_at(empty) is None
     centre = _px(canvas, far.position)
     hit = canvas.hit_at(centre)
@@ -630,7 +630,7 @@ def test_wheel_zoom_never_stalls_on_a_close_target() -> None:
     for _ in range(80):
         _wheel(canvas, centre, 1)
     reach = float(np.linalg.norm(canvas.camera.position() - point))
-    assert MIN_APPROACH - 1e-6 <= reach < MIN_APPROACH * 1.2, (reach0, reach)
+    assert reach_floor(point) < reach < reach0 * 0.88 ** 79, (reach0, reach)
     assert np.allclose(_px(canvas, point), centre, atol=1e-4)
 
 

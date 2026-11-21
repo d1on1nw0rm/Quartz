@@ -149,7 +149,7 @@ def _weld_map(points: np.ndarray, tol: float, subset=None) -> np.ndarray:
     return rep
 
 
-def _catmull_clark(points: np.ndarray, polys: list) -> tuple[np.ndarray, list]:
+def _catmull_clark(points: np.ndarray, polys: list, iso: set | None = None):
     npts = len(points)
     face_pts = np.array([points[list(p)].mean(axis=0) for p in polys])
     edge_ids: dict[tuple[int, int], int] = {}
@@ -203,7 +203,16 @@ def _catmull_clark(points: np.ndarray, polys: list) -> tuple[np.ndarray, list]:
         eidx = [edge_ids[_edge_key(poly[j], poly[(j + 1) % k])] for j in range(k)]
         for j in range(k):
             new_polys.append((poly[j], off_e + eidx[j], off_f + f, off_e + eidx[j - 1]))
-    return np.vstack([vert_pts, edge_pts, face_pts]), new_polys
+    out_pts = np.vstack([vert_pts, edge_pts, face_pts])
+    if iso is None:
+        return out_pts, new_polys
+    halves = set()
+    for key in iso:
+        e = edge_ids.get(key)
+        if e is not None:
+            halves.add(_edge_key(key[0], off_e + e))
+            halves.add(_edge_key(key[1], off_e + e))
+    return out_pts, new_polys, halves
 
 
 def build_subdivision(p: dict, inputs: list) -> Mesh:
@@ -212,12 +221,20 @@ def build_subdivision(p: dict, inputs: list) -> Mesh:
         return Mesh.empty()
     level = int(p["subdivision_editor"])
     out = []
+    iso: list = []
+    offset = 0
     for pts, polys in parts:
+        cage = {_edge_key(a, b) for poly in polys for a, b in zip(poly, tuple(poly[1:]) + (poly[0],))}
         for _ in range(level):
-            pts, polys = _catmull_clark(pts, polys)
+            pts, polys, cage = _catmull_clark(pts, polys, cage)
         out.append((pts, polys))
+        iso.extend((a + offset, b + offset) for a, b in sorted(cage))
+        offset += len(pts)
     pts, polys = _join(out)
-    return _finish(pts, polys)
+    mesh = _finish(pts, polys)
+    if len(mesh.points) == offset:
+        mesh.isoparms = iso
+    return mesh
 
 
 def build_symmetry(p: dict, inputs: list) -> Mesh:

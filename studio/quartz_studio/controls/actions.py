@@ -8,7 +8,8 @@ from functools import partial
 from typing import Callable
 
 SCOPES = ("global", "viewport", "objects")
-CATEGORIES = ("File", "Edit", "Modes", "Tools", "Mesh", "Select", "Create", "View", "Cameras", "Objects")
+CATEGORIES = ("File", "Edit", "Modes", "Tools", "Mesh", "Select", "Create", "View", "Cameras", "Display",
+              "Filter", "Objects")
 CAMERA_PRESETS = ("Perspective", "Parallel", "Left", "Right", "Front", "Back", "Top", "Bottom", "Isometric",
                   "Dimetric")
 NAV_PIVOTS = ("Cursor", "Center", "Object", "Camera")
@@ -122,6 +123,12 @@ def _can_make_editable() -> bool:
     return bool(_menu_bar("can_make_editable"))
 
 
+def _display(name: str, *args) -> object:
+    from quartz_studio.widgets import display_filter
+
+    return getattr(display_filter, name)(*args)
+
+
 def _tree_has_selection() -> bool:
     win = _window()
     if win is None:
@@ -187,6 +194,13 @@ def _core() -> list[Action]:
     for name in NAV_PIVOTS:
         out.append(a("camera.pivot." + name.lower(), "Navigation: " + name, "Cameras",
                      partial(_canvas_call, "set_nav_pivot", name), scope="viewport"))
+    from quartz_studio.widgets import display_filter
+
+    for key, label in display_filter.SHADINGS:
+        out.append(a("display." + key, label, "Display", partial(_display, "set_shading", key),
+                     scope="viewport"))
+    for key, label in display_filter.TOGGLES:
+        out.append(a("filter." + key, label, "Filter", partial(_display, "toggle", key), scope="viewport"))
     return out
 
 

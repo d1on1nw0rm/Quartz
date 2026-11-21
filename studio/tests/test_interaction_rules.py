@@ -254,7 +254,9 @@ def test_profiles_list_the_new_gestures_and_keep_classic() -> None:
             continue
         assert new["keys"].get(key) == value, (key, value, new["keys"].get(key))
     added = set(new["keys"]) - set(old.CLASSIC["keys"])
-    assert added <= {"tool.select_all", "tool.grow_selection", "tool.shrink_selection"}, added
+    assert added <= {"tool.select_all", "tool.grow_selection", "tool.shrink_selection",
+                     "display.shaded", "display.shaded_lines", "display.wireframe",
+                     "display.isoparms", "display.hidden_line"}, added
     assert [g for g in new["mouse"] if g in old.CLASSIC["mouse"]] == old.CLASSIC["mouse"]
     extra = [g for g in new["mouse"] if g not in old.CLASSIC["mouse"]]
     assert extra == [{"button": "right", "mods": ["ctrl"], "op": "remove"},

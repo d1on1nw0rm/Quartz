@@ -1558,3 +1558,36 @@ Standard hold the same rows.
 - Tests: `test_interaction_rules`, `test_multi_selection`, `test_controls_chords`, `test_perf_text`, plus the
   updated `test_smoke`, `test_press_feedback`, `test_modeling_integration`, `test_modeling_select`,
   `test_controls_profiles` and `test_pen`.
+
+## 14. Display, Filter and unlimited zoom
+
+Built after section 13. The viewport header has two menus after View and Cameras: Display and Filter. Their
+state is kept in the preferences under `display.*` (`display.shading` plus one boolean per toggle), so every
+viewport window shows the same state and the menus are kept in step between windows. The module is
+`widgets/display_filter.py`.
+
+- Display. One choice of five, checked in the menu: Shaded with Lines (the default), Shaded, Wireframe, Hidden
+  Line and Isoparms. Shaded draws no lines. Shaded with Lines draws the polygon outlines on the shaded surface.
+  Wireframe draws the edges only. Hidden Line draws only the edges that are not occluded. Isoparms draws the
+  isoparametric lines: for Subdivision Surface, the edges that descend from the cage (`mesh.isoparms`); for
+  sphere, cylinder, cone, torus, tube and capsule, profiles at four azimuths and the main circles.
+- Filter. Eight check items, all on by default: N-gon Lines, Points, World Axis, Horizon, Axis Triad, Gizmo,
+  Tool HUD and Selection Outline. Each one gates its own drawing on the canvas. The last item, Reset Display,
+  clears every `display.*` preference back to the defaults.
+- Shortcuts (Classic only, like the other view keys, with the viewport focused): `N~A` Shaded, `N~B` Shaded
+  with Lines, `N~H` Wireframe, `N~I` Isoparms, `N~F` Hidden Line. Standard binds no display keys. The Filter
+  toggles have no shortcut.
+- Actions: `display.<mode>` and `filter.<toggle>` in `controls/actions.py`, scope viewport, categories
+  Display and Filter.
+- Zoom is not limited by a fixed range (interface.md section 6). The distance to the target is clamped
+  between 1e-6 and 1e15 scene units (`REACH_FLOOR`, `REACH_CEIL`). The near plane follows the distance:
+  `NEAR_RATIO` times the reach, kept between `NEAR_FLOOR` and `NEAR_DEFAULT`. The wheel dolly carries the
+  depth with `carry_depth()`, which scales with the scene radius, so it never passes through the target and
+  never stalls on a close one.
+- Screen guard. Segments and polygons are clipped in screen space before painting (`_guard_segments`,
+  `_poly_draw`, `_screen_segment`, `SCREEN_GUARD` 4096 px), so geometry far outside the view, at any zoom,
+  does not reach QPainter. Null objects, loose edges, world axes and guides use the same clip.
+- Known limit: there is no separate Polygon Edges overlay toggle. The polygon outline is part of Shaded with
+  Lines, and the edge overlay is the Edges mode.
+- Tests: `test_display_filter` (16), `test_zoom_unlimited` (12) and the updated `test_camera` and
+  `test_viewport_draw`.

@@ -70,12 +70,65 @@ class _Builder:
         return Mesh(np.array(self.points, float).reshape(-1, 3), clean_polygons(self.polygons))
 
 
+def _principal(mesh: Mesh, rings: str, radii: tuple = (), rim: bool = True) -> Mesh:
+    pts = mesh.points
+    if not len(pts) or not mesh.polygons:
+        return mesh
+    tol = 1e-6 * max(1.0, float(np.abs(pts).max()))
+    y = pts[:, 1]
+    rad = np.hypot(pts[:, 0], pts[:, 2])
+    ang = np.arctan2(pts[:, 2], pts[:, 0])
+    off = rad > tol
+    quarters = []
+    if off.any():
+        found = np.unique(np.round(ang[off], 6))
+        for t in (0.0, TAU / 4.0, TAU / 2.0, -TAU / 4.0):
+            quarters.append(float(found[int(np.argmin([abs(math.remainder(f - t, TAU)) for f in found]))]))
+    spokes: set = set()
+    hoops: list = []
+    for a, b in mesh.polygon_edges():
+        if abs(y[a] - y[b]) <= tol:
+            if abs(rad[a] - rad[b]) <= tol and rad[a] > tol:
+                hoops.append(((a, b), float(y[a]), float(rad[a])))
+            continue
+        angs = [float(ang[i]) for i in (a, b) if off[i]]
+        if angs and abs(math.remainder(angs[0] - angs[-1], TAU)) <= 1e-6 and any(
+                abs(math.remainder(angs[0] - q, TAU)) <= 1e-6 for q in quarters):
+            spokes.add((a, b))
+    if radii:
+        hoops = [h for h in hoops if any(abs(h[2] - r) <= tol for r in radii)]
+    elif rim:
+        top: dict = {}
+        for _e, level, r in hoops:
+            top[round(level, 6)] = max(top.get(round(level, 6), 0.0), r)
+        hoops = [h for h in hoops if abs(h[2] - top[round(h[1], 6)]) <= tol]
+    if hoops:
+        levels = {round(h[1], 6) for h in hoops}
+        keep: set = set()
+        flat = min(levels, key=abs)
+        if rings in ("equator", "ends+equator", "junction"):
+            keep.add(flat)
+        if rings in ("ends", "ends+equator"):
+            keep.update((min(levels), max(levels)))
+        if rings == "junction":
+            widest = max(h[2] for h in hoops)
+            stops = [h[1] for h in hoops if abs(h[2] - widest) <= tol]
+            keep.update((round(min(stops), 6), round(max(stops), 6)))
+        spokes.update(e for e, level, _r in hoops if round(level, 6) in keep)
+    mesh.isoparms = sorted(spokes)
+    return mesh
+
+
 def _orient(mesh: Mesh, orientation: str) -> Mesh:
     if orientation == "+Y" or not len(mesh.points):
         return mesh
     src = mesh.points
     cols = [sign * src[:, axis] for axis, sign in ORIENT_MAPS[orientation]]
-    return Mesh(np.column_stack(cols), mesh.polygons, mesh.loose_edges)
+    out = Mesh(np.column_stack(cols), mesh.polygons, mesh.loose_edges)
+    iso = getattr(mesh, "isoparms", None)
+    if iso is not None:
+        out.isoparms = iso
+    return out
 
 
 def _ring(b: _Builder, y: float, radius: float, rot: int) -> list[int]:
@@ -223,8 +276,9 @@ def _torus(big: float, ring_segments: int, small: float, pipe_segments: int) -> 
 def _build_torus(p: dict, _inputs: list) -> Mesh:
     if p["ring_radius"] <= 0.0 or p["pipe_radius"] <= 0.0:
         return Mesh.empty()
-    return _orient(_torus(p["ring_radius"], p["ring_segments"], p["pipe_radius"], p["pipe_segments"]),
-                   p["orientation"])
+    m = _principal(_torus(p["ring_radius"], p["ring_segments"], p["pipe_radius"], p["pipe_segments"]),
+                   "ends+equator", rim=False)
+    return _orient(m, p["orientation"])
 
 
 def _build_cone(p: dict, _inputs: list) -> Mesh:
@@ -244,7 +298,7 @@ def _build_cone(p: dict, _inputs: list) -> Mesh:
             _cap(b, -h / 2.0, bottom, rot, cs, False)
         if top > 0.0:
             _cap(b, h / 2.0, top, rot, cs, True)
-    return _orient(b.mesh(), p["orientation"])
+    return _orient(_principal(b.mesh(), "ends"), p["orientation"])
 
 
 def _build_cylinder(p: dict, _inputs: list) -> Mesh:
@@ -252,7 +306,7 @@ def _build_cylinder(p: dict, _inputs: list) -> Mesh:
         return Mesh.empty()
     m = prim.cylinder(p["radius"], p["height"], p["height_segments"], p["rotation_segments"],
                       p["caps"], p["cap_segments"])
-    return _orient(m, p["orientation"])
+    return _orient(_principal(m, "ends"), p["orientation"])
 
 
 def _build_tube(p: dict, _inputs: list) -> Mesh:
@@ -260,7 +314,7 @@ def _build_tube(p: dict, _inputs: list) -> Mesh:
         return Mesh.empty()
     m = prim.tube(p["inner_radius"], p["outer_radius"], p["height"], p["rotation_segments"],
                   p["cap_segments"], p["height_segments"])
-    return _orient(m, p["orientation"])
+    return _orient(_principal(m, "ends", radii=(p["inner_radius"], p["outer_radius"])), p["orientation"])
 
 
 def _build_oil_tank(p: dict, _inputs: list) -> Mesh:
@@ -277,7 +331,7 @@ def _build_capsule(p: dict, _inputs: list) -> Mesh:
     body = max(0.0, p["height"] - 2.0 * p["radius"])
     m = prim.capsule(p["radius"], body, p["height_segments"], p["cap_segments"],
                      p["rotation_segments"])
-    return _orient(m, p["orientation"])
+    return _orient(_principal(m, "junction"), p["orientation"])
 
 
 def _hemisphere(radius: float, segments: int) -> Mesh:
@@ -409,7 +463,7 @@ def _build_sphere(p: dict, _inputs: list) -> Mesh:
     kind = p["type"]
     seg = int(p["segments"])
     if kind == "Standard":
-        return prim.sphere(r, seg)
+        return _principal(prim.sphere(r, seg), "equator")
     if kind == "Hemisphere":
         return _hemisphere(r, seg)
     pts, faces = _base_solid(kind)

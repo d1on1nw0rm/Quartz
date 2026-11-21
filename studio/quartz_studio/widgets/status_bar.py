@@ -256,10 +256,11 @@ class StatusBar(QStatusBar):
             lay.addWidget(label, 1)
         self.addWidget(self.body, 1)
         self.scene = get_scene()
+        self._scene_key: tuple | None = None
         for signal in (self.scene.changed, self.scene.selectionChanged, self.scene.objectsChanged):
-            signal.connect(self.refresh)
-        self.scene.modeChanged.connect(self.refresh)
-        self.scene.toolChanged.connect(self.refresh)
+            signal.connect(self._on_scene)
+        self.scene.modeChanged.connect(self._on_scene)
+        self.scene.toolChanged.connect(self._on_scene)
         from quartz_studio import controls
 
         controls.hub().profileChanged.connect(self.refresh)
@@ -272,8 +273,17 @@ class StatusBar(QStatusBar):
         label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         return label
 
+    def _on_scene(self, *_args) -> None:
+        scene = self.scene
+        key = (scene.mode, scene.tool, selection_text(scene))
+        if key == self._scene_key:
+            return
+        self.refresh()
+
     def refresh(self, *_args) -> None:
-        left, hint, selection = status_texts(self.scene)
+        scene = self.scene
+        self._scene_key = (scene.mode, scene.tool, selection_text(scene))
+        left, hint, selection = status_texts(scene)
         for label, text in ((self.mode_label, left), (self.hint_label, hint),
                             (self.selection_label, selection)):
             if label.text() != text:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from itertools import chain
 
 import numpy as np
 
@@ -137,7 +138,7 @@ def _partition(b: _Batch, pn: np.ndarray, pw: float, eps: float, coplanar: bool)
 
 def _pick_splitter(b: _Batch, eps: float) -> int:
     count = len(b)
-    if count <= 24:
+    if count <= 64:
         return 0
     starts = b.starts()
     best = 0
@@ -242,21 +243,61 @@ def _convex_planar(ring: np.ndarray, n: np.ndarray, eps: float) -> bool:
     return bool(np.all(c >= -eps * float(np.max(np.linalg.norm(e, axis=1)))))
 
 
+def _reorder(b: _Batch, order: np.ndarray) -> _Batch:
+    starts = b.starts()
+    cnt = b.cnt[order]
+    lead = np.cumsum(cnt) - cnt
+    pid = np.repeat(np.arange(len(order)), cnt)
+    idx = starts[order][pid] + (np.arange(int(cnt.sum())) - lead[pid])
+    return _Batch(b.v[idx], cnt, b.n[order], b.w[order], b.src[order])
+
+
 def _mesh_batch(mesh: Mesh, src: _Src, eps: float) -> _Batch:
     pts = mesh.points
-    items: list = []
-    for k, poly in enumerate(mesh.polygons):
-        if len(poly) < 3:
+    polys = mesh.polygons
+    total = len(polys)
+    if not total:
+        return _empty()
+    sizes = np.fromiter(map(len, polys), np.int64, total)
+    normals = np.zeros((total, 3))
+    offsets = np.zeros(total)
+    valid = np.zeros(total, bool)
+    fast = np.zeros(total, bool)
+    for m in np.unique(sizes).tolist():
+        if m < 3:
             continue
+        ks = np.flatnonzero(sizes == m)
+        ring = pts[np.array([polys[k] for k in ks.tolist()], np.int64).reshape(len(ks), m)]
+        nxt = np.roll(ring, -1, axis=1)
+        nv = np.stack([((ring[..., 1] - nxt[..., 1]) * (ring[..., 2] + nxt[..., 2])).sum(axis=1),
+                       ((ring[..., 2] - nxt[..., 2]) * (ring[..., 0] + nxt[..., 0])).sum(axis=1),
+                       ((ring[..., 0] - nxt[..., 0]) * (ring[..., 1] + nxt[..., 1])).sum(axis=1)], axis=1)
+        length = np.linalg.norm(nv, axis=1)
+        good = length > 1e-12
+        n = nv / np.where(good, length, 1.0)[:, None]
+        off = np.abs(np.einsum("kmj,kj->km", ring - ring[:, :1], n)).max(axis=1)
+        flat = off <= eps
+        if m == 3:
+            convex = flat
+        else:
+            e = nxt - ring
+            c = np.einsum("kmj,kj->km", np.cross(e, np.roll(e, -1, axis=1)), n)
+            reach = np.linalg.norm(e, axis=2).max(axis=1)
+            convex = flat & (c >= -eps * reach[:, None]).all(axis=1)
+        valid[ks] = good
+        fast[ks] = good & convex
+        normals[ks] = n
+        offsets[ks] = np.einsum("kj,kj->k", n, ring.mean(axis=1))
+    fast_ids = np.zeros(total, np.int64)
+    slow: list = []
+    slow_keys: list = []
+    for k in np.flatnonzero(valid).tolist():
+        if fast[k]:
+            fast_ids[k] = src.take()
+            continue
+        poly = polys[k]
         ring = pts[list(poly)]
-        nv = _newell(ring)
-        length = float(np.linalg.norm(nv))
-        if length <= 1e-12:
-            continue
-        n = nv / length
-        if _convex_planar(ring, n, eps):
-            items.append((ring.copy(), n, float(n @ ring.mean(axis=0)), src.take()))
-            continue
+        n = normals[k]
         planar = float(np.max(np.abs((ring - ring[0]) @ n))) <= eps
         shared = src.take()
         for tri in triangulate_polygon(mesh, k):
@@ -266,8 +307,20 @@ def _mesh_batch(mesh: Mesh, src: _Src, eps: float) -> _Batch:
             if tl <= 1e-12:
                 continue
             tn = tn / tl
-            items.append((tr.copy(), tn, float(tn @ tr[0]), shared if planar else src.take()))
-    return _from_list(items)
+            slow.append((tr.copy(), tn, float(tn @ tr[0]), shared if planar else src.take()))
+            slow_keys.append(k)
+    fk = np.flatnonzero(fast)
+    if len(fk):
+        cnt = sizes[fk]
+        flat_ids = np.fromiter(chain.from_iterable(polys[k] for k in fk.tolist()), np.int64, int(cnt.sum()))
+        batch = _Batch(pts[flat_ids], cnt, normals[fk], offsets[fk], fast_ids[fk])
+    else:
+        batch = _empty()
+    if not slow:
+        return batch
+    keys = np.concatenate([fk, np.array(slow_keys, np.int64)])
+    merged = _concat([batch, _from_list(slow)])
+    return _reorder(merged, np.argsort(keys, kind="stable"))
 
 
 def _overlaps(b: _Batch, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
@@ -661,23 +714,51 @@ _PREPARED_LIMIT = 32
 
 
 def _prepared(mesh: Mesh, eps: float):
-    key = (mesh.points.tobytes(), tuple(mesh.polygons), eps)
+    pts = mesh.points
+    if len(pts):
+        origin = pts[0].copy()
+        shape = np.round((pts - origin) / (0.25 * eps)).astype(np.int64).tobytes()
+    else:
+        origin = np.zeros(3)
+        shape = b""
+    key = (shape, tuple(mesh.polygons), eps)
     hit = _PREPARED.get(key)
     if hit is None:
         src = _Src()
         batch = _mesh_batch(mesh, src, eps)
         if len(_PREPARED) >= _PREPARED_LIMIT:
             _PREPARED.clear()
-        hit = _PREPARED[key] = (batch, src.next, _build_tree(batch, eps), _is_closed(mesh))
-    return hit
+        hit = _PREPARED[key] = (origin, batch, src.next, _build_tree(batch, eps), _is_closed(mesh))
+        return hit[1:]
+    old, batch, count, tree, closed = hit
+    delta = origin - old
+    if delta.any():
+        batch = _Batch(batch.v + delta, batch.cnt, batch.n, batch.w + batch.n @ delta, batch.src)
+        if tree is not None:
+            tree = (tree[0], tree[1] + tree[0] @ delta, tree[2], tree[3])
+        _PREPARED[key] = (origin, batch, count, tree, closed)
+    return batch, count, tree, closed
 
 
 def _is_closed(mesh: Mesh) -> bool:
-    directed: dict = {}
-    for poly in mesh.polygons:
-        for u, v in zip(poly, poly[1:] + poly[:1]):
-            directed[(u, v)] = directed.get((u, v), 0) + 1
-    return bool(directed) and all(c == 1 and directed.get((v, u)) == 1 for (u, v), c in directed.items())
+    polys = mesh.polygons
+    if not polys:
+        return False
+    counts = np.fromiter(map(len, polys), np.int64, len(polys))
+    total = int(counts.sum())
+    if total == 0:
+        return False
+    flat = np.fromiter(chain.from_iterable(polys), np.int64, total)
+    if int(flat.min()) < 0:
+        return False
+    starts = np.cumsum(counts) - counts
+    pid = np.repeat(np.arange(len(polys)), counts)
+    nxt = flat[starts[pid] + (np.arange(total) - starts[pid] + 1) % counts[pid]]
+    width = int(flat.max()) + 1
+    forward = flat * width + nxt
+    backward = nxt * width + flat
+    seen, times = np.unique(forward, return_counts=True)
+    return bool((times == 1).all() and np.isin(backward, seen).all())
 
 
 def _copy(mesh: Mesh) -> Mesh:

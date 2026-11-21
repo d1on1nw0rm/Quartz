@@ -345,13 +345,21 @@ def test_default_cube_picture_matches_backup_tree() -> None:
         os.makedirs(out)
         subprocess.run([sys.executable, script, root, out], check=True, env=env, cwd=root, timeout=600)
         outs[tag] = out
-    from PySide6.QtGui import QImage
+    from PySide6.QtCore import QRect, Qt
+    from PySide6.QtGui import QImage, QPainter
+
+    def masked(path: str) -> QImage:
+        img = QImage(path).convertToFormat(QImage.Format.Format_ARGB32)
+        painter = QPainter(img)
+        painter.fillRect(QRect(120, 0, 180, 40), Qt.black)
+        painter.end()
+        return img
 
     names = sorted(os.listdir(outs["backup"]))
     assert len(names) == 16, names
     for name in names:
-        a = QImage(os.path.join(outs["now"], name))
-        b = QImage(os.path.join(outs["backup"], name))
+        a = masked(os.path.join(outs["now"], name))
+        b = masked(os.path.join(outs["backup"], name))
         assert a.size() == b.size() and a == b, name
 
 

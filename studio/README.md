@@ -221,3 +221,6 @@ the object tests in `tests/test_objects_*.py` and the managers in `tests/test_ob
 - `tools/make_spritesheet.py`: renders every icon into a spritesheet and a contact sheet (`--sizes`, `--zoom`,
   `--only`, `--contact-out`).
 - `SPEC.md`: the specification the interface was built from.
+- `widgets/display_filter.py`: the viewport header's Display menu (five shading modes) and Filter menu (eight overlay toggles), stored as `display.*` preferences.
+- The viewport zoom has no fixed range (distances from 1e-6 to 1e15 units); `SPEC.md` section 14 lists the rules and the Classic `N~A`, `N~B`, `N~H`, `N~I` and `N~F` display keys.
+- `tests/test_display_filter.py`, `tests/test_zoom_unlimited.py` and `tests/test_perf_scene.py` cover the display, zoom and scene performance code.

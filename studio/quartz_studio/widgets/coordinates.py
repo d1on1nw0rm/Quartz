@@ -328,6 +328,7 @@ class CoordinatesManager(QWidget):
         self._scene = get_scene()
         self._state = STATE_NONE
         self._target: tuple = (STATE_NONE,)
+        self._applied: tuple | None = None
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(theme.CARD_PADDING, theme.SPACE_1, theme.CARD_PADDING,
@@ -396,10 +397,10 @@ class CoordinatesManager(QWidget):
             grid.setColumnStretch(c, 1)
         lay.addWidget(grid_host)
 
-        self._scene.changed.connect(self.refresh)
-        self._scene.selectionChanged.connect(self.refresh)
-        self._scene.modeChanged.connect(self.refresh)
-        self._scene.objectsChanged.connect(self.refresh)
+        self._scene.changed.connect(self._on_scene)
+        self._scene.selectionChanged.connect(self._on_scene)
+        self._scene.modeChanged.connect(self._on_scene)
+        self._scene.objectsChanged.connect(self._on_scene)
         self.refresh()
 
     def minimumSizeHint(self) -> QSize:
@@ -431,13 +432,10 @@ class CoordinatesManager(QWidget):
             return (state, scene.active, scene.mode, frozenset(selected))
         return (state,)
 
-    def refresh(self, *_args) -> None:
+    def _snapshot(self) -> tuple:
         scene = self._scene
         state = self._compute_state()
         target = self._target_of(state)
-        retarget = target != self._target
-        self._state = state
-        self._target = target
         obj = scene.active
         zeros = (0.0, 0.0, 0.0)
         if state == STATE_OBJECT:
@@ -451,22 +449,38 @@ class CoordinatesManager(QWidget):
         else:
             columns = (zeros, zeros, zeros)
             editable = (False, False, False)
+        columns = tuple(tuple(float(v) for v in col) for col in columns)
+        changed = state == STATE_OBJECT and obj is not None and (
+            any(float(v) != 0.0 for v in obj.position)
+            or any(float(v) != 0.0 for v in obj.rotation)
+            or any(float(v) != 1.0 for v in obj.scale))
+        return state, target, columns, editable, bool(changed)
 
+    def _on_scene(self, *_args) -> None:
+        snap = self._snapshot()
+        if snap == self._applied:
+            return
+        self._apply(snap)
+
+    def refresh(self, *_args) -> None:
+        self._apply(self._snapshot())
+
+    def _apply(self, snap: tuple) -> None:
+        state, target, columns, editable, changed = snap
+        retarget = target != self._target
+        self._applied = snap
+        self._state = state
+        self._target = target
         for c, values in enumerate(columns):
             for a in range(3):
                 field = self.fields[a][c]
-                field.set_value(float(values[a]), discard_edit=retarget)
+                field.set_value(values[a], discard_edit=retarget)
                 field.setEnabled(editable[c])
 
         active = state != STATE_NONE
         for label in (*self.axis_labels, *self.column_titles):
             label.setEnabled(active)
-        obj = self._scene.active
-        changed = state == STATE_OBJECT and obj is not None and (
-            any(float(v) != 0.0 for v in obj.position)
-            or any(float(v) != 0.0 for v in obj.rotation)
-            or any(float(v) != 1.0 for v in obj.scale))
-        self.reset_button.setEnabled(bool(changed))
+        self.reset_button.setEnabled(changed)
 
     def _component_values(self) -> tuple:
         scene = self._scene

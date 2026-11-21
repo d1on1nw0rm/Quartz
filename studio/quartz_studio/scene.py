@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import copy
 import math
-from collections import deque
+from collections import OrderedDict, deque
+from itertools import chain, count
 from typing import Iterable
 
 import numpy as np
@@ -30,6 +31,10 @@ PEN_TOOLS = ("pen", "line_pen")
 COMMAND_TOOLS: frozenset = frozenset()
 
 UNDO_LIMIT = 128
+BUILD_CACHE_ENTRIES = 24
+BUILD_CACHE_POINTS = 2_000_000
+
+_UID = count(1)
 
 EDITABLE_KIND = "polygon"
 
@@ -72,7 +77,10 @@ def _cross2(o: np.ndarray, a: np.ndarray, b: np.ndarray) -> float:
 
 
 def _ear_clip(ring: np.ndarray) -> list[tuple[int, int, int]]:
-    flat = _plane_2d(ring)
+    return _ear_clip_flat(_plane_2d(ring))
+
+
+def _ear_clip_flat(flat: np.ndarray) -> list[tuple[int, int, int]]:
     idx = list(range(len(flat)))
     tris: list[tuple[int, int, int]] = []
     guard = 0
@@ -102,6 +110,43 @@ def _ear_clip(ring: np.ndarray) -> list[tuple[int, int, int]]:
     if len(idx) == 3:
         tris.append((idx[0], idx[1], idx[2]))
     return tris
+
+
+_NGON_CACHE: dict = {}
+_NGON_LIMIT = 256
+
+
+def ngon_triangles(flat: np.ndarray) -> list[tuple[int, int, int]]:
+    flat = np.ascontiguousarray(flat, dtype=float)
+    key = flat.tobytes()
+    hit = _NGON_CACHE.pop(key, None)
+    if hit is None:
+        hit = _well_shaped_tris(flat)
+        while len(_NGON_CACHE) >= _NGON_LIMIT:
+            _NGON_CACHE.pop(next(iter(_NGON_CACHE)))
+    _NGON_CACHE[key] = hit
+    return list(hit)
+
+
+def _all_ccw(flat: np.ndarray, tris: list, eps: float) -> bool:
+    t = np.asarray(tris, int)
+    a, b, c = flat[t[:, 0]], flat[t[:, 1]], flat[t[:, 2]]
+    cross = (b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1]) - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0])
+    return bool((cross > eps).all())
+
+
+def _well_shaped_tris(flat: np.ndarray) -> list[tuple[int, int, int]]:
+    n = len(flat)
+    if n < 3:
+        return []
+    span = float(np.ptp(flat, axis=0).max())
+    if span > 1e-12:
+        from .objects.gen_spline import _ear_clip as best_ears
+
+        tris = best_ears(flat, list(range(n)), 1e-12 * span * span, True)
+        if len(tris) >= n - 2 and _all_ccw(flat, tris, 1e-12 * span * span):
+            return tris
+    return _ear_clip_flat(flat)
 
 
 def _ray_triangle(o: np.ndarray, d: np.ndarray, a: np.ndarray, b: np.ndarray,
@@ -205,6 +250,28 @@ class Mesh:
         return np.ones(len(self.points)) if values is None else values.copy()
 
     @classmethod
+    def trusted(cls, points: np.ndarray, polygons: list) -> "Mesh":
+        out = cls.__new__(cls)
+        out.points = np.asarray(points, float).reshape(-1, 3)
+        out.polygons = polygons
+        out.loose_edges = []
+        out.edges = []
+        out._point_scales = None
+        out._scales_count = -1
+        out._rebuild_edges()
+        return out
+
+    def with_points(self, points: np.ndarray) -> "Mesh":
+        out = Mesh.__new__(Mesh)
+        out.points = np.asarray(points, float).reshape(-1, 3)
+        out.polygons = self.polygons
+        out.loose_edges = self.loose_edges
+        out.edges = self.edges
+        out._point_scales = None
+        out._scales_count = -1
+        return out
+
+    @classmethod
     def cube(cls, size: float = 200.0) -> "Mesh":
         h = size / 2.0
         points = [
@@ -222,6 +289,28 @@ class Mesh:
         return cls(points, polygons)
 
     def polygon_edges(self) -> list[Edge]:
+        polys = self.polygons
+        if not polys:
+            return []
+        counts = np.fromiter(map(len, polys), np.int64, len(polys))
+        total = int(counts.sum())
+        if total == 0:
+            return []
+        flat = np.fromiter(chain.from_iterable(polys), np.int64, total)
+        low = int(flat.min())
+        if low < 0:
+            return self._polygon_edges_slow()
+        starts = np.cumsum(counts) - counts
+        pid = np.repeat(np.arange(len(polys)), counts)
+        nxt = flat[starts[pid] + (np.arange(total) - starts[pid] + 1) % counts[pid]]
+        lo = np.minimum(flat, nxt)
+        hi = np.maximum(flat, nxt)
+        key = lo * (int(flat.max()) + 1) + hi
+        _, first = np.unique(key, return_index=True)
+        first.sort()
+        return list(zip(lo[first].tolist(), hi[first].tolist()))
+
+    def _polygon_edges_slow(self) -> list[Edge]:
         seen: set[Edge] = set()
         out: list[Edge] = []
         for poly in self.polygons:
@@ -237,7 +326,8 @@ class Mesh:
         covered = set(poly_edges)
         loose: list[Edge] = []
         for e in self.loose_edges:
-            if e not in covered and e not in loose and e[0] != e[1]:
+            if e not in covered and e[0] != e[1]:
+                covered.add(e)
                 loose.append(e)
         self.loose_edges = loose
         self.edges = poly_edges + loose
@@ -279,8 +369,9 @@ class Mesh:
         if len(poly) <= 4:
             return []
         pts = self.points if points is None else np.asarray(points, float)
-        tris = _ear_clip(pts[list(poly)])
-        return [(poly[a], poly[b]) for a, b in _merge_into_quads(pts[list(poly)], tris)]
+        ring = pts[list(poly)]
+        tris = ngon_triangles(_plane_2d(ring))
+        return [(poly[a], poly[b]) for a, b in _merge_into_quads(ring, tris)]
 
     def polygon_normals(self, points: np.ndarray | None = None) -> np.ndarray:
         pts = self.points if points is None else np.asarray(points, float)
@@ -384,6 +475,8 @@ class SceneObject:
         self._dirty = kind != "polygon"
         self._sig = None
         self._version = 0
+        self._uid = next(_UID)
+        self._input_memo = None
 
     def linear(self) -> np.ndarray:
         return rotation_matrix(self.rotation) @ np.diag(self.scale)
@@ -464,6 +557,8 @@ class Scene(QObject):
         self._group_depth = 0
         self._group_recorded = False
         self._last_kind = ""
+        self._build_cache: OrderedDict = OrderedDict()
+        self._build_cache_points = 0
         self._release_watch = False
         self._release_timer = QTimer(self)
         self._release_timer.setInterval(30)
@@ -550,16 +645,22 @@ class Scene(QObject):
         index = {id(o): i for i, o in enumerate(self.objects)}
         for o in self.objects:
             m = o.mesh
-            objs.append({
+            rec = {
                 "name": o.name, "kind": o.kind, "params": dict(o.params),
                 "parent": index.get(id(o.parent), -1) if o.parent is not None else -1,
                 "enabled": o.enabled, "error": o.error,
-                "points": m.points.copy(), "polygons": list(m.polygons),
-                "loose": list(m.loose_edges),
-                "scales": None if m.point_scales is None else m.point_scales.copy(),
                 "position": o.position.copy(), "rotation": o.rotation.copy(),
                 "scale": o.scale.copy(), "extras": copy.deepcopy(o.extras),
-            })
+            }
+            if o.kind == EDITABLE_KIND:
+                rec.update({
+                    "points": m.points.copy(), "polygons": list(m.polygons),
+                    "loose": list(m.loose_edges),
+                    "scales": None if m.point_scales is None else m.point_scales.copy(),
+                })
+            else:
+                rec["mesh"] = m
+            objs.append(rec)
         active = self.objects.index(self.active) if self.active in self.objects else -1
         return {
             "objects": objs, "active": active, "object_selected": self.object_selected,
@@ -573,9 +674,13 @@ class Scene(QObject):
     def _restore(self, snap: dict) -> None:
         self.objects = []
         for rec in snap["objects"]:
-            obj = SceneObject(rec["name"], Mesh(rec["points"].copy(), rec["polygons"], rec["loose"],
-                                                point_scales=rec.get("scales")),
-                              rec["kind"], rec["params"])
+            shared = rec.get("mesh")
+            if shared is not None:
+                mesh = shared
+            else:
+                mesh = Mesh(rec["points"].copy(), rec["polygons"], rec["loose"],
+                            point_scales=rec.get("scales"))
+            obj = SceneObject(rec["name"], mesh, rec["kind"], rec["params"])
             obj.position = rec["position"].copy()
             obj.rotation = rec["rotation"].copy()
             obj.scale = rec["scale"].copy()
@@ -854,9 +959,21 @@ class Scene(QObject):
     def _input_flats(self, obj: SceneObject, kids: dict) -> list:
         return [self._flatten(c, kids) for c in kids.get(obj, ()) if c.enabled]
 
+    def _flat_signature(self, flat: list) -> tuple:
+        return tuple((o._uid, o.kind, m.tobytes(), self._mesh_sig(o)) for o, m in flat)
+
     def _signature(self, flats: list) -> tuple:
-        return tuple(tuple((id(o), o.kind, m.tobytes(), self._mesh_sig(o)) for o, m in flat)
-                     for flat in flats)
+        return tuple(self._flat_signature(flat) for flat in flats)
+
+    def _inputs_for(self, flats: list, sigs: tuple) -> list:
+        out = []
+        for flat, sig in zip(flats, sigs):
+            root = flat[0][0]
+            memo = root._input_memo
+            if memo is None or memo[0] != sig:
+                memo = root._input_memo = (sig, self._make_input(flat))
+            out.append(memo[1])
+        return out
 
     @staticmethod
     def _make_input(flat: list):
@@ -887,18 +1004,44 @@ class Scene(QObject):
         return BuildInput(mesh, root.name, root.kind, obj=root, matrix=matrix.copy())
 
     def _build(self, obj: SceneObject, spec, inputs: list) -> None:
+        values = spec.defaults()
+        values.update(obj.params)
+        key = None
+        if not inputs:
+            try:
+                key = (spec.id, repr(sorted(values.items())))
+            except Exception:
+                key = None
+        hit = self._build_cache.get(key) if key is not None else None
+        if hit is not None and hit[0] is spec:
+            self._build_cache.move_to_end(key)
+            obj.mesh = hit[1]
+            obj.error = ""
+            obj._version += 1
+            return
         try:
-            values = spec.defaults()
-            values.update(obj.params)
             mesh = spec.build(values, inputs)
             if not isinstance(mesh, Mesh):
                 raise TypeError(f"build returned {type(mesh).__name__}, not a Mesh")
             obj.mesh = mesh
             obj.error = ""
+            if key is not None:
+                self._cache_mesh(key, spec, mesh)
         except Exception as exc:
             obj.mesh = Mesh.empty()
             obj.error = f"{type(exc).__name__}: {exc}"
         obj._version += 1
+
+    def _cache_mesh(self, key, spec, mesh: Mesh) -> None:
+        old = self._build_cache.pop(key, None)
+        if old is not None:
+            self._build_cache_points -= len(old[1].points)
+        self._build_cache[key] = (spec, mesh)
+        self._build_cache_points += len(mesh.points)
+        while self._build_cache and (len(self._build_cache) > BUILD_CACHE_ENTRIES
+                                     or self._build_cache_points > BUILD_CACHE_POINTS):
+            _k, (_s, dropped) = self._build_cache.popitem(last=False)
+            self._build_cache_points -= len(dropped.points)
 
     def evaluate(self) -> bool:
         if all(o.kind == EDITABLE_KIND for o in self.objects):
@@ -919,11 +1062,11 @@ class Scene(QObject):
                 obj._dirty = False
                 continue
             flats = self._input_flats(obj, kids) if spec.inputs == "children" else []
-            sig = self._signature(flats)
-            if not obj._dirty and sig == obj._sig:
+            sigs = self._signature(flats)
+            if not obj._dirty and sigs == obj._sig:
                 continue
-            self._build(obj, spec, [self._make_input(f) for f in flats])
-            obj._sig = sig
+            self._build(obj, spec, self._inputs_for(flats, sigs))
+            obj._sig = sigs
             obj._dirty = False
             rebuilt = True
         return rebuilt
@@ -1245,7 +1388,7 @@ class Scene(QObject):
             world = obj.world_points()
             for k, poly in enumerate(obj.mesh.polygons):
                 ring = world[list(poly)]
-                tris = [(0, m, m + 1) for m in range(1, len(poly) - 1)] if len(poly) <= 4 else _ear_clip(ring)
+                tris = [(0, m, m + 1) for m in range(1, len(poly) - 1)] if len(poly) <= 4 else ngon_triangles(_plane_2d(ring))
                 for a, b, c in tris:
                     t = _ray_triangle(o, d, ring[a], ring[b], ring[c])
                     if t is not None and (best is None or t < best[3]):

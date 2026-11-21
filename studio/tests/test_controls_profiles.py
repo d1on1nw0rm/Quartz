@@ -57,6 +57,8 @@ CLASSIC_VIEWPORT_KEYS = [
     ("view.frame_default", "Shift+H"), ("view.undo", "Ctrl+Shift+Z"), ("view.redo", "Ctrl+Shift+Y"),
     ("camera.perspective", "F1"), ("camera.top", "F2"), ("camera.right", "F3"), ("camera.front", "F4"),
     ("tool.delete", "Delete"),
+    ("display.shaded", "N~A"), ("display.shaded_lines", "N~B"), ("display.wireframe", "N~H"),
+    ("display.isoparms", "N~I"), ("display.hidden_line", "N~F"),
 ]
 
 CLASSIC_OBJECT_KEYS = [("object.rename", "F2"), ("object.delete", "Delete"), ("object.delete", "Backspace")]

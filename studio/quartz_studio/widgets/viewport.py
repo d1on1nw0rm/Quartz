@@ -11,6 +11,7 @@ from PySide6.QtCore import QEvent, QLineF, QObject, QPoint, QPointF, QRectF, QSi
 from PySide6.QtGui import (
     QAction,
     QActionGroup,
+    QBrush,
     QColor,
     QFont,
     QFontMetricsF,
@@ -41,10 +42,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from quartz_studio import icons, theme
+from quartz_studio import icons, prefs, theme
 from quartz_studio.objects.builtin import null_segments
 from quartz_studio.scene import PEN_TOOLS, Mesh, SceneObject, get_scene, rotation_matrix
-from quartz_studio.scene import _merge_into_quads, _plane_2d
+from quartz_studio.scene import _merge_into_quads, _plane_2d, ngon_triangles
+from quartz_studio.widgets import display_filter
 from quartz_studio.widgets.common import IconButton
 from quartz_studio.widgets.menu_bar import P_SHORTCUT, StudioMenu
 from quartz_studio.widgets.press_feedback import HOLD_PROPERTY
@@ -107,6 +109,8 @@ VIEWPORT_MENUS: list[tuple[str, list]] = [
         ("sep",),
         *_CAMERA_VIEWS,
     ]),
+    ("Display", display_filter.menu_entries()[0]),
+    ("Filter", display_filter.menu_entries()[1]),
 ]
 
 NAV_ICONS: list[tuple[str, str]] = [
@@ -256,10 +260,15 @@ PITCH_LIMIT = 89.0
 ORBIT_SPEED = 0.3
 DOLLY_SPEED = 0.005
 WHEEL_STEP = 0.88
-MIN_DISTANCE = 2.0
-MAX_DISTANCE = 1.0e6
-MIN_APPROACH = 5.0
-NAV_MIN_DEPTH = 100.0
+REACH_FLOOR = 1.0e-6
+REACH_FLOOR_REL = 1.0e-12
+REACH_CEIL = 1.0e15
+CARRY_RATIO = 0.5
+EMPTY_CARRY = 100.0
+NEAR_DEFAULT = 1.0
+NEAR_RATIO = 1.0e-3
+NEAR_FLOOR = 1.0e-9
+SCREEN_GUARD = 4096.0
 ORTHO_BACK = 1.0e5
 VIEW_HISTORY = 128
 FRAME_MARGIN = 1.15
@@ -286,6 +295,18 @@ def _snap(v: np.ndarray) -> np.ndarray:
     return np.where(np.abs(v) < 1e-12, 0.0, v)
 
 
+def reach_floor(point) -> float:
+    return max(REACH_FLOOR, REACH_FLOOR_REL * float(np.linalg.norm(np.asarray(point, float))))
+
+
+def _clamp_reach(value: float) -> float:
+    return min(max(value, REACH_FLOOR), REACH_CEIL)
+
+
+def near_for(reach: float) -> float:
+    return min(max(NEAR_RATIO * reach, NEAR_FLOOR), NEAR_DEFAULT)
+
+
 @dataclass
 class OrbitCamera:
 
@@ -294,7 +315,7 @@ class OrbitCamera:
     distance: float = DEFAULT_DISTANCE
     target: np.ndarray = field(default_factory=lambda: np.zeros(3))
     focal: float = DEFAULT_FOCAL
-    near: float = 1.0
+    near: float = NEAR_DEFAULT
     ortho: bool = False
 
     def copy(self) -> "OrbitCamera":
@@ -383,7 +404,7 @@ class OrbitCamera:
         self.distance *= factor
 
     def dolly(self, factor: float) -> None:
-        self.distance = max(MIN_DISTANCE, min(MAX_DISTANCE, self.distance * factor))
+        self.distance = _clamp_reach(self.distance * factor)
 
 
 GroundCamera = OrbitCamera
@@ -617,6 +638,7 @@ class _Topology:
         self.on_face = np.zeros(len(mesh.points), bool)
         self.on_face[self.flat] = True
         self.mesh_edge_ids = np.fromiter((index.get(e, -1) for e in mesh.edges), int, len(mesh.edges))
+        self.edge_array = np.fromiter((i for e in edge_faces for i in e), int, 2 * len(edge_faces)).reshape(-1, 2)
 
 
 @dataclass
@@ -742,6 +764,7 @@ class ViewportCanvas(QWidget):
     viewChanged = Signal(str)
     navPivotChanged = Signal(str)
     hudChanged = Signal()
+    displayChanged = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -778,6 +801,9 @@ class ViewportCanvas(QWidget):
         self._topo_cache: dict = {}
         self._guide_batch_cache: dict = {}
         self._shade_cache: dict = {}
+        self._fill_pen_cache: dict = {}
+        self._iso_cache: dict = {}
+        self.display = display_filter.load()
         self._refine_now = False
         self._refine_timer = QTimer(self)
         self._refine_timer.setSingleShot(True)
@@ -792,6 +818,15 @@ class ViewportCanvas(QWidget):
         self.scene.modeChanged.connect(self._on_mode_changed)
         self.scene.toolChanged.connect(self._on_tool_changed)
         self.scene.objectsChanged.connect(self._on_objects_changed)
+        prefs.changed.connect(self._on_prefs_changed)
+
+    def _on_prefs_changed(self, key: str) -> None:
+        if display_filter.is_display_key(key):
+            state = display_filter.load()
+            if state != self.display:
+                self.display = state
+                self.displayChanged.emit()
+                self.update()
 
     def _on_scene_changed(self) -> None:
         self.update()
@@ -929,7 +964,7 @@ class ViewportCanvas(QWidget):
     def _ngon_tris(self, mesh: Mesh, poly: tuple) -> list[tuple[int, int, int]]:
         ring = mesh.points[list(poly)]
         return self._cached(self._tri_cache, (poly, ring.tobytes()),
-                            lambda: _ear_clip_2d(_plane_2d(ring)))
+                            lambda: ngon_triangles(_plane_2d(ring)))
 
     def ngon_guides(self, mesh: Mesh, k: int) -> list[tuple[int, int]]:
         poly = mesh.polygons[k]
@@ -1015,8 +1050,16 @@ class ViewportCanvas(QWidget):
         hit = self.hit_at(pos)
         if hit is not None:
             return np.asarray(hit[2], float)
-        point = self.unproject(pos, max(self.camera.eye_distance(), NAV_MIN_DEPTH))
+        point = self.unproject(pos, max(self.camera.eye_distance(), self.carry_depth()))
         return point if point is not None else np.asarray(self.camera.target, float).copy()
+
+    def carry_depth(self) -> float:
+        bounds = self.scene.world_bounds()
+        if bounds is None:
+            return EMPTY_CARRY
+        lo, hi = bounds
+        radius = float(np.linalg.norm(np.asarray(hi, float) - np.asarray(lo, float))) / 2.0
+        return max(CARRY_RATIO * radius, REACH_FLOOR)
 
     def label_font(self) -> QFont:
         f = QFont(self.font())
@@ -1092,12 +1135,77 @@ class ViewportCanvas(QWidget):
         view.polys[k] = (QPolygonF([QPointF(float(x), float(y)) for x, y in pts]), depth)
         return view.polys[k]
 
+    def _guard_rect(self) -> tuple[float, float, float, float]:
+        g = SCREEN_GUARD
+        return -g, -g, self.width() + g, self.height() + g
+
+    def _in_guard(self, world_point) -> bool:
+        xy = self.project(np.asarray(world_point, float).reshape(1, 3))[0][0]
+        x0, y0, x1, y1 = self._guard_rect()
+        return bool(x0 <= xy[0] <= x1 and y0 <= xy[1] <= y1)
+
+    def _guard_segments(self, p0: np.ndarray, p1: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        n = len(p0)
+        x0, y0, x1, y1 = self._guard_rect()
+        inside = ((p0[:, 0] >= x0) & (p0[:, 0] <= x1) & (p0[:, 1] >= y0) & (p0[:, 1] <= y1)
+                  & (p1[:, 0] >= x0) & (p1[:, 0] <= x1) & (p1[:, 1] >= y0) & (p1[:, 1] <= y1))
+        if inside.all():
+            return p0, p1, np.ones(n, bool)
+        d = p1 - p0
+        t0, t1, ok = np.zeros(n), np.ones(n), np.ones(n, bool)
+        with np.errstate(all="ignore"):
+            for pv, qv in ((-d[:, 0], p0[:, 0] - x0), (d[:, 0], x1 - p0[:, 0]),
+                           (-d[:, 1], p0[:, 1] - y0), (d[:, 1], y1 - p0[:, 1])):
+                zero = pv == 0.0
+                ok &= ~(zero & (qv < 0.0))
+                r = qv / np.where(zero, 1.0, pv)
+                t0 = np.where(~zero & (pv < 0.0), np.maximum(t0, r), t0)
+                t1 = np.where(~zero & (pv > 0.0), np.minimum(t1, r), t1)
+            ok &= t0 <= t1
+            q0 = np.where(inside[:, None], p0, p0 + d * t0[:, None])
+            q1 = np.where(inside[:, None], p1, p0 + d * t1[:, None])
+        return q0, q1, ok | inside
+
+    def _guard_clip_polygon(self, poly: QPolygonF) -> QPolygonF | None:
+        x0, y0, x1, y1 = self._guard_rect()
+        pts = [(q.x(), q.y()) for q in poly]
+        for axis, bound, keep_greater in ((0, x0, True), (0, x1, False), (1, y0, True), (1, y1, False)):
+            if not pts:
+                break
+            out = []
+            for i, cur in enumerate(pts):
+                prev = pts[i - 1]
+                cur_in = cur[axis] >= bound if keep_greater else cur[axis] <= bound
+                prev_in = prev[axis] >= bound if keep_greater else prev[axis] <= bound
+                if cur_in != prev_in:
+                    t = (bound - prev[axis]) / (cur[axis] - prev[axis])
+                    out.append((prev[0] + (cur[0] - prev[0]) * t, prev[1] + (cur[1] - prev[1]) * t))
+                if cur_in:
+                    out.append(cur)
+            pts = out
+        if len(pts) < 3:
+            return None
+        return QPolygonF([QPointF(x, y) for x, y in pts])
+
+    def _poly_draw(self, view: _ObjectView, k: int) -> tuple[QPolygonF | None, float]:
+        poly, depth = self._poly_screen(view, k)
+        if poly is None:
+            return poly, depth
+        x0, y0, x1, y1 = self._guard_rect()
+        box = poly.boundingRect()
+        if (math.isfinite(box.left()) and math.isfinite(box.right()) and math.isfinite(box.top())
+                and math.isfinite(box.bottom()) and box.left() >= x0 and box.right() <= x1
+                and box.top() >= y0 and box.bottom() <= y1):
+            return poly, depth
+        return self._guard_clip_polygon(poly), depth
+
     def _edge_lines(self, view: _ObjectView, edges) -> list[QLineF | None]:
         e = np.asarray(list(edges), int).reshape(-1, 2)
         if not len(e):
             return []
         s0, s1, keep = _clip_near_many(view.cam[e[:, 0]], view.cam[e[:, 1]], self.camera.near)
-        p0, p1 = self._cam_to_screen(s0), self._cam_to_screen(s1)
+        p0, p1, ok = self._guard_segments(self._cam_to_screen(s0), self._cam_to_screen(s1))
+        keep = keep & ok
         return [QLineF(p0[i, 0], p0[i, 1], p1[i, 0], p1[i, 1]) if keep[i] else None
                 for i in range(len(e))]
 
@@ -1106,7 +1214,10 @@ class ViewportCanvas(QWidget):
         if seg is None:
             return None
         s = self._cam_to_screen(np.vstack(seg))
-        return QLineF(s[0, 0], s[0, 1], s[1, 0], s[1, 1])
+        p0, p1, ok = self._guard_segments(s[:1], s[1:])
+        if not ok[0]:
+            return None
+        return QLineF(p0[0, 0], p0[0, 1], p1[0, 0], p1[0, 1])
 
     def pick(self, pos) -> tuple[str | None, object]:
         mode = self.scene.mode
@@ -1214,7 +1325,7 @@ class ViewportCanvas(QWidget):
         if centre is None:
             return None
         depth = float(self.camera.depth(centre)[0])
-        if depth <= self.camera.near * 2:
+        if depth <= self.camera.near * 2 or not self._in_guard(centre):
             return None
         length = self.GIZMO_PX * self.px_size(depth)
         pts = np.vstack([centre, centre + self._gizmo_axes() * length])
@@ -1341,7 +1452,7 @@ class ViewportCanvas(QWidget):
         if centre is None:
             return None
         depth = float(self.camera.depth(centre)[0])
-        if depth <= self.camera.near * 2:
+        if depth <= self.camera.near * 2 or not self._in_guard(centre):
             return None
         size = self.GIZMO_RING_PX * self.px_size(depth)
         _pos, fwd, right, up = self.camera.basis()
@@ -1372,6 +1483,8 @@ class ViewportCanvas(QWidget):
         return best
 
     def gizmo_pick(self, pos) -> str | None:
+        if not self.display.gizmo:
+            return None
         tool = self.scene.tool
         if tool == "rotate":
             return self.ring_hit(pos)
@@ -1394,13 +1507,16 @@ class ViewportCanvas(QWidget):
         clip.addRoundedRect(inner, radius, radius)
         p.setClipPath(clip)
         self._paint_background(p, inner)
-        self._paint_horizon(p, inner)
+        if self.display.horizon:
+            self._paint_horizon(p, inner)
         self._paint_scene(p)
-        self._paint_tool_gizmo(p)
+        if self.display.gizmo:
+            self._paint_tool_gizmo(p)
         self._paint_pen(p)
         self._paint_pivot(p)
         self._paint_texts(p, inner)
-        self._paint_gizmo(p, inner)
+        if self.display.axis_triad:
+            self._paint_gizmo(p, inner)
         p.end()
         self._refine_now = False
 
@@ -1478,8 +1594,10 @@ class ViewportCanvas(QWidget):
         if not len(edges):
             return {}
         s0, s1, keep = _clip_near_many(view.cam[edges[:, 0]], view.cam[edges[:, 1]], self.camera.near)
-        p0 = self._cam_to_screen(s0).tolist()
-        p1 = self._cam_to_screen(s1).tolist()
+        g0, g1, ok = self._guard_segments(self._cam_to_screen(s0), self._cam_to_screen(s1))
+        keep = keep & ok
+        p0 = g0.tolist()
+        p1 = g1.tolist()
         out: dict = {}
         for i, k in enumerate(owner.tolist()):
             if keep[i]:
@@ -1725,16 +1843,71 @@ class ViewportCanvas(QWidget):
         b1 = s1 + (s0 - s1) * ((near - z1) / np.where(z0 == z1, 1.0, z0 - z1))[:, None]
         s0 = np.where((z0 < near)[:, None], a0, s0)
         s1 = np.where((z1 < near)[:, None], b1, s1)
-        p0 = self._cam_to_screen(s0).tolist()
-        p1 = self._cam_to_screen(s1).tolist()
+        g0, g1, ok = self._guard_segments(self._cam_to_screen(s0), self._cam_to_screen(s1))
+        keep = keep & ok
+        p0 = g0.tolist()
+        p1 = g1.tolist()
         return [(edge_list[r], QLineF(p0[i][0], p0[i][1], p1[i][0], p1[i][1]))
                 for i, r in enumerate(rows.tolist()) if keep[i]]
+
+    def _fill_pen(self, color: QColor) -> QPen:
+        key = color.rgba()
+        pen = self._fill_pen_cache.get(key)
+        if pen is None:
+            if len(self._fill_pen_cache) > 1024:
+                self._fill_pen_cache.clear()
+            pen = QPen(color, 1.0)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            self._fill_pen_cache[key] = pen
+        return pen
+
+    def _iso_edges(self, view: _ObjectView) -> list[tuple[int, int]] | None:
+        iso = getattr(view.obj.mesh, "isoparms", None)
+        if iso is None:
+            return None
+        topo = view.topo
+        cached = self._iso_cache.get(id(iso))
+        if cached is not None and cached[0] is iso and cached[1] is topo:
+            return cached[2]
+        faces = view.edge_faces
+        found = [(int(a), int(b)) for a, b in iso if (int(a), int(b)) in faces]
+        if len(self._iso_cache) >= 16:
+            self._iso_cache.pop(next(iter(self._iso_cache)))
+        self._iso_cache[id(iso)] = (iso, topo, found)
+        return found
+
+    def _edge_items(self, view: _ObjectView, edges, pen: QPen, seq0: int) -> list[tuple[float, int, tuple]]:
+        e = np.asarray(edges, int).reshape(-1, 2)
+        if not len(e):
+            return []
+        s0, s1, keep = _clip_near_many(view.cam[e[:, 0]], view.cam[e[:, 1]], self.camera.near)
+        g0, g1, ok = self._guard_segments(self._cam_to_screen(s0), self._cam_to_screen(s1))
+        keep = keep & ok
+        depth = ((s0[:, 2] + s1[:, 2]) / 2.0).tolist()
+        p0, p1 = g0.tolist(), g1.tolist()
+        out: list[tuple[float, int, tuple]] = []
+        for i in np.nonzero(keep)[0].tolist():
+            out.append((depth[i], seq0 + len(out), ("line", QLineF(p0[i][0], p0[i][1], p1[i][0], p1[i][1]), pen)))
+        return out
 
     def _paint_scene(self, p: QPainter) -> None:
         scene = self.scene
         light = self._light_dir()
+        shading = self.display.shading
         outline = QPen(QColor(theme.POLY_OUTLINE), 1.0)
         outline.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        wire_pen = QPen(QColor(theme.WIRE), 1.0)
+        wire_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        hidden_brush = None
+        if shading == "hidden_line":
+            ground = QLinearGradient(self.inner_rect().topLeft(), self.inner_rect().bottomLeft())
+            ground.setColorAt(0.0, QColor(theme.VIEWPORT_TOP))
+            ground.setColorAt(1.0, QColor(theme.VIEWPORT_BOTTOM))
+            hidden_brush = QBrush(ground)
+        elif shading == "wireframe":
+            wire_color = QColor(theme.WIRE)
+            wire_color.setAlpha(160)
+            wire_pen = QPen(wire_color, 1.0)
         items: list[tuple[float, int, tuple]] = []
         active_view: _ObjectView | None = None
         guide_pen = QPen(QColor(theme.ACCENT), 1.4)
@@ -1769,16 +1942,29 @@ class ViewportCanvas(QWidget):
                 far = np.full(count, -np.inf)
                 np.maximum.at(far, view.topo.pid, view.cam[view.topo.flat, 2])
                 far = far.tolist()
-            guides = self._guide_lines(view)
+            guides = self._guide_lines(view) if self.display.ngon_lines else {}
+            iso = self._iso_edges(view) if shading == "isoparms" else None
+            drawn: dict[int, float] = {}
             for k in range(count):
                 if hide_back and not fronts[k]:
                     continue
-                poly, depth = self._poly_screen(view, k)
+                poly, depth = self._poly_draw(view, k)
                 if poly is None:
                     continue
                 if not closed:
                     depth = far[k] if far is not None else float(view.cam[list(mesh.polygons[k]), 2].max())
-                items.append((depth, len(items), ("poly", poly, self._shade_cached(lams[k]))))
+                if shading == "wireframe":
+                    pass
+                elif shading == "hidden_line":
+                    items.append((depth, len(items), ("poly", poly, hidden_brush, wire_pen)))
+                else:
+                    color = self._shade_cached(lams[k])
+                    if shading == "shaded" or iso is not None:
+                        items.append((depth, len(items), ("poly", poly, color, self._fill_pen(color))))
+                    else:
+                        items.append((depth, len(items), ("poly", poly, color, outline)))
+                if iso:
+                    drawn[k] = depth
                 if k in picked:
                     if fronts[k]:
                         items.append((depth, len(items), ("selected", poly, select_fill, select_pen)))
@@ -1786,18 +1972,31 @@ class ViewportCanvas(QWidget):
                         items.append((depth, len(items), ("selected", poly, back_fill, back_pen)))
                 for line in guides.get(k, ()):
                     items.append((depth, len(items), ("line", line, guide_pen)))
+            if iso:
+                lines = self._edge_lines(view, iso)
+                for edge, line in zip(iso, lines):
+                    if line is None:
+                        continue
+                    owners = [k for k in view.edge_faces[edge] if k in drawn]
+                    if owners:
+                        k = min(owners, key=lambda j: drawn[j])
+                        items.append((drawn[k], len(items), ("line", line, outline)))
+            elif shading == "wireframe" and count:
+                edges = view.topo.edge_array if isinstance(view.topo, _Topology) else list(view.edge_faces)
+                items.extend(self._edge_items(view, edges, wire_pen, len(items)))
             items.extend(self._loose_edge_items(view, len(items)))
             if obj.kind == "null":
                 items.extend(self._null_items(obj, len(items)))
         if (active_view is None and scene.mode != "model" and scene.is_editable(scene.active)
                 and scene.active in scene.objects):
             active_view = self._object_view(scene.active)
-        items.extend(self._world_axis_items(len(items)))
+        if self.display.world_axis:
+            items.extend(self._world_axis_items(len(items)))
         items.sort(key=lambda it: (-it[0], it[1]))
         p.setPen(outline)
         for _depth, _seq, item in items:
             if item[0] == "poly":
-                p.setPen(outline)
+                p.setPen(item[3])
                 p.setBrush(item[2])
                 p.drawPolygon(item[1])
             elif item[0] == "selected":
@@ -1849,6 +2048,9 @@ class ViewportCanvas(QWidget):
             if cam[0, 2] <= near:
                 return []
             s = self._cam_to_screen(cam)[0]
+            gx0, gy0, gx1, gy1 = self._guard_rect()
+            if not (gx0 <= s[0] <= gx1 and gy0 <= s[1] <= gy1):
+                return []
             pen = QPen(color, 7.0 if display == "Dot" else 3.0)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             return [(float(cam[0, 2]), seq0, ("line", QLineF(s[0], s[1], s[0], s[1] + 0.01), pen))]
@@ -1859,7 +2061,8 @@ class ViewportCanvas(QWidget):
         world = center[None, None, :] + np.einsum("sjk,kc->sjc", segs, axes)
         cam = self.camera.to_camera(world.reshape(-1, 3)).reshape(-1, 2, 3)
         s0, s1, keep = _clip_near_many(cam[:, 0], cam[:, 1], near)
-        p0, p1 = self._cam_to_screen(s0), self._cam_to_screen(s1)
+        p0, p1, ok = self._guard_segments(self._cam_to_screen(s0), self._cam_to_screen(s1))
+        keep = keep & ok
         pen = QPen(color, 2.0 if selected else 1.4)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         out = []
@@ -1899,7 +2102,9 @@ class ViewportCanvas(QWidget):
         t1 = (local + 1) / count[owner]
         d = (eb - ea)[owner]
         s0, s1, keep = _clip_near_many(ea[owner] + d * t0[:, None], ea[owner] + d * t1[:, None], near)
-        p0, p1 = self._cam_to_screen(s0).tolist(), self._cam_to_screen(s1).tolist()
+        g0, g1, ok = self._guard_segments(self._cam_to_screen(s0), self._cam_to_screen(s1))
+        keep = keep & ok
+        p0, p1 = g0.tolist(), g1.tolist()
         depth = ((s0[:, 2] + s1[:, 2]) / 2.0).tolist()
         keep = keep.tolist()
         selected = scene.selected_edges if is_active and scene.mode == "edges" else ()
@@ -1932,8 +2137,10 @@ class ViewportCanvas(QWidget):
             cb = b + (a - b) * ((near - zb) / np.where(za == zb, 1.0, za - zb))[:, None]
             a = np.where((za < near)[:, None], ca, a)
             b = np.where((zb < near)[:, None], cb, b)
-            sa = self._cam_to_screen(a).tolist()
-            sb = self._cam_to_screen(b).tolist()
+            ga, gb, gok = self._guard_segments(self._cam_to_screen(a), self._cam_to_screen(b))
+            sa = ga.tolist()
+            sb = gb.tolist()
+            keep = (np.asarray(keep) & gok).tolist()
             mid = ((a[:, 2] + b[:, 2]) / 2).tolist()
             for i in range(self.AXIS_PIECES):
                 if keep[i]:
@@ -1958,7 +2165,7 @@ class ViewportCanvas(QWidget):
         mode = scene.mode
         warm = QColor(theme.SELECT_FRONT)
         if mode == "model":
-            if scene.object_selected:
+            if scene.object_selected and self.display.selection_outline:
                 pen = QPen(warm, 2.0)
                 pen.setCapStyle(Qt.PenCapStyle.RoundCap)
                 p.setPen(pen)
@@ -1985,7 +2192,12 @@ class ViewportCanvas(QWidget):
                 if edge in selected:
                     p.drawLine(line)
             return
+        if not self.display.points:
+            return
         shown = np.nonzero(view.visible_points & view.in_front)[0]
+        gx0, gy0, gx1, gy1 = self._guard_rect()
+        sx, sy = view.screen[shown, 0], view.screen[shown, 1]
+        shown = shown[(sx >= gx0) & (sx <= gx1) & (sy >= gy0) & (sy <= gy1)]
         shown = shown[self._sight_clear(view.world[shown])]
         selected = scene.selected_points
         p.setPen(QPen(QColor(theme.POINT_BORDER), 1.0))
@@ -2112,7 +2324,10 @@ class ViewportCanvas(QWidget):
         if seg is None:
             return None
         s = self._cam_to_screen(np.vstack(seg))
-        return QLineF(s[0, 0], s[0, 1], s[1, 0], s[1, 1])
+        p0, p1, ok = self._guard_segments(s[:1], s[1:])
+        if not ok[0]:
+            return None
+        return QLineF(p0[0, 0], p0[0, 1], p1[0, 0], p1[0, 1])
 
     def pen_preview_world(self) -> np.ndarray | None:
         hover = self._pen_hover
@@ -2244,6 +2459,8 @@ class ViewportCanvas(QWidget):
             icons.render(p, QRectF(plate.left() + theme.SPACE_2 + tw + 3,
                                    plate.top() + (plate.height() - badge) / 2, badge, badge),
                          "viewport_camera_badge")
+        if not self.display.hud:
+            return
         hud_w = sfm.horizontalAdvance(self.hud_text)
         icon_px = round(theme.HUD_H * 0.6)
         hud = self.hud_rect(inner)
@@ -2429,7 +2646,7 @@ class ViewportCanvas(QWidget):
             factor = math.exp(-(dx - dy) * float(cursor("dolly_speed")))
             if NAV_PIVOTS.get(self.nav_pivot) == "camera" and not cam.ortho:
                 fwd = cam.basis()[1]
-                step = (1.0 - factor) * max(cam.distance, NAV_MIN_DEPTH)
+                step = (1.0 - factor) * max(cam.distance, self.carry_depth())
                 cam.target = np.asarray(cam.target, float) + fwd * step
             else:
                 self._scale_view(pivot, factor)
@@ -2439,26 +2656,26 @@ class ViewportCanvas(QWidget):
         cam = self.camera
         point = np.asarray(point, float)
         if cam.ortho:
-            d = max(cam.distance, 1e-9)
-            factor = min(max(factor, MIN_DISTANCE / d), MAX_DISTANCE / d)
+            d = max(cam.distance, 1e-300)
+            factor = _clamp_reach(d * factor) / d
             if abs(factor - 1.0) > 1e-12:
                 cam.scale_about(point, factor)
             return
         eye, fwd, _right, _up = cam.basis()
         reach = float(np.linalg.norm(eye - point))
-        if reach > 1e-9:
-            if factor < 1.0:
-                factor = max(factor, min(1.0, MIN_APPROACH / reach))
-            else:
-                factor = min(factor, max(1.0, MAX_DISTANCE / reach))
-        if abs(factor - 1.0) <= 1e-12:
+        if reach <= 1e-300:
+            return
+        new_reach = min(max(reach * factor, reach_floor(point)), REACH_CEIL)
+        factor = new_reach / reach
+        if abs(factor - 1.0) <= 1e-15:
             return
         new_eye = point + (eye - point) * factor
         distance = cam.distance * factor
         if factor < 1.0:
-            distance = max(distance, min(cam.distance, NAV_MIN_DEPTH))
-        cam.distance = min(max(distance, MIN_DISTANCE), MAX_DISTANCE)
+            distance = max(distance, min(cam.distance, self.carry_depth()))
+        cam.distance = _clamp_reach(distance)
         cam.target = new_eye + fwd * cam.distance
+        cam.near = near_for(new_reach)
 
     def zoom_at(self, pos, notches: float) -> None:
         if not notches:
@@ -2523,6 +2740,8 @@ class ViewportCanvas(QWidget):
         if heading is not None:
             cam.heading, cam.pitch = heading, pitch
         cam.ortho = ortho
+        if not default:
+            cam.near = near_for(cam.distance)
         return cam
 
     def set_view(self, name: str) -> None:
@@ -2549,7 +2768,8 @@ class ViewportCanvas(QWidget):
             return False
         lo, hi = pts.min(axis=0), pts.max(axis=0)
         centre = (lo + hi) / 2.0
-        radius = max(float(np.linalg.norm(hi - lo)) / 2.0, MIN_FRAME_RADIUS) * FRAME_MARGIN
+        extent = float(np.linalg.norm(hi - lo)) / 2.0
+        radius = (extent if extent > REACH_FLOOR else MIN_FRAME_RADIUS) * FRAME_MARGIN
         film = self.film_rect()
         f = self.camera.focal * film.width()
         short = max(min(film.width(), film.height()), 1.0)
@@ -2559,7 +2779,8 @@ class ViewportCanvas(QWidget):
             distance = radius / math.sin(math.atan(short / 2.0 / f))
         self._push_view()
         self.camera.target = centre
-        self.camera.distance = max(MIN_DISTANCE, min(MAX_DISTANCE, distance))
+        self.camera.distance = _clamp_reach(distance)
+        self.camera.near = near_for(self.camera.distance)
         self.update()
         return True
 
@@ -3389,6 +3610,10 @@ class ViewportCanvas(QWidget):
             out["camera." + name.lower()] = lambda n=name: self.set_view(n)
         for name in NAV_PIVOTS:
             out["camera.pivot." + name.lower()] = lambda n=name: self.set_nav_pivot(n)
+        for key, _label in display_filter.SHADINGS:
+            out["display." + key] = lambda k=key: display_filter.set_shading(k)
+        for key, _label in display_filter.TOGGLES:
+            out["filter." + key] = lambda k=key: display_filter.toggle(k)
         for tool in ("select", "move", "rotate", "scale"):
             out["tool." + tool] = lambda t=tool: scene.set_tool(t)
         return out
@@ -3711,6 +3936,35 @@ class ViewportMenuBar(QWidget):
         canvas.navPivotChanged.connect(self._sync_pivot_checks)
         self._sync_view_checks(canvas.view_name)
         self._sync_pivot_checks(canvas.nav_pivot)
+        self._bind_display(canvas)
+
+    def _bind_display(self, canvas: ViewportCanvas) -> None:
+        self.shading_actions: dict[str, QAction] = {}
+        self.filter_actions: dict[str, QAction] = {}
+        self._shading_group = QActionGroup(self)
+        self._shading_group.setExclusive(True)
+        for key, label in display_filter.SHADINGS:
+            act = self._rewire("Display", label, lambda k=key: display_filter.set_shading(k))
+            if act is not None:
+                act.setCheckable(True)
+                self._shading_group.addAction(act)
+                self.shading_actions[key] = act
+        for key, label in display_filter.TOGGLES:
+            act = self._rewire("Filter", label, lambda k=key: display_filter.toggle(k))
+            if act is not None:
+                act.setCheckable(True)
+                self.filter_actions[key] = act
+        self._rewire("Filter", display_filter.RESET_LABEL, display_filter.reset)
+        canvas.displayChanged.connect(lambda: self._sync_display(canvas))
+        self._sync_display(canvas)
+
+    def _sync_display(self, canvas: ViewportCanvas) -> None:
+        state = canvas.display
+        active = self.shading_actions.get(state.shading)
+        if active is not None:
+            active.setChecked(True)
+        for key, act in self.filter_actions.items():
+            act.setChecked(bool(getattr(state, key)))
 
     def _sync_view_checks(self, name: str) -> None:
         act = self.view_actions.get(name)

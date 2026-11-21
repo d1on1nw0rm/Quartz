@@ -520,7 +520,7 @@ def test_header_is_overlaid_inside_the_canvas() -> None:
     assert bar.geometry().top() == 0 and bar.width() == canvas.width()
     free = theme.DOCK_BOTTOM + theme.DOCK_H + theme.SPACE_3
     assert bar.geometry().bottom() < canvas.height() - free
-    assert bar.menu_titles() == ["View", "Cameras"]
+    assert bar.menu_titles() == ["View", "Cameras", "Display", "Filter"]
     for button in bar.menu_buttons:
         assert button.height() == theme.GHOST_BUTTON_H and button.x() >= theme.SPACE_2
         assert canvas.childAt(button.geometry().center()) is button

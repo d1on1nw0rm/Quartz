@@ -316,6 +316,7 @@ class ObjectTree(QTreeWidget):
         self._scene = get_scene()
         self._hover_obj: SceneObject | None = None
         self._syncing = False
+        self._fingerprint: tuple | None = None
         self._press_obj: SceneObject | None = None
         self._press_pos: QPoint | None = None
         self._drag_obj: SceneObject | None = None
@@ -381,7 +382,19 @@ class ObjectTree(QTreeWidget):
             if obj is not None and item.text(0) != obj.name:
                 item.setText(0, obj.name)
 
+    def _scene_fingerprint(self) -> tuple:
+        out = []
+        for o in self._scene.objects:
+            mesh = o.mesh
+            out.append((o._uid, 0 if o.parent is None else o.parent._uid, o.name, o.enabled,
+                        o.kind, bool(mesh.polygons), len(mesh.points) == 0, o.extras.get("icon")))
+        return tuple(out)
+
     def sync(self) -> None:
+        fingerprint = self._scene_fingerprint()
+        if fingerprint == self._fingerprint and self.topLevelItemCount():
+            return
+        self._fingerprint = fingerprint
         rows = self._rows()
         self._syncing = True
         try:
